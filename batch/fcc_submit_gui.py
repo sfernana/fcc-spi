@@ -49,12 +49,12 @@ except:
 
 #user libraries
 import fcc_batch as batch
-import fcc_file_system as filesys
 
 
 
 
-#Global Variables
+
+#constants
 Police = 12
 LARGE_FONT= ("Verdana", Police)
 window_width = 500
@@ -78,9 +78,10 @@ main = None
 #***********************************#
 
 
-def launchGUI():
+def launchGUI(my_file_sys):
 
-    global main
+    launchGUI.my_file_sys = my_file_sys
+    
     main = Submission()
     main.title("FCC SUBMIT")
     #main.main.iconphoto(True,ImageTk.PhotoImage(file=os.path.join(sys.path[0],"fcc.png")))
@@ -102,7 +103,7 @@ def launchGUI():
 def run(self):
     
 
-    chosen_batch = filesys.get_batch()
+    chosen_batch = launchGUI.my_file_sys.get_batch()
 
 
     specification = {}
@@ -160,7 +161,7 @@ def run(self):
 
     
         #submit configuration
-        batch.submit_bash(specification)
+        batch.submit_bash(launchGUI.my_file_sys,specification)
 
     except ValueError:
         message = "Please enter a valid number"
@@ -176,14 +177,14 @@ def run(self):
 def show(self,who):
 
 
-    result_folder, batch_folder, output_folder, error_folder , log_folder = filesys.get_workspace()
+    result_folder, batch_folder, output_folder, error_folder , log_folder = launchGUI.my_file_sys.get_workspace()
 
-    job_id = filesys.get_last_job_id()    
+    job_id = launchGUI.my_file_sys.get_last_job_id()    
 
     if who == 'log':
 
 
-        file_content = filesys.read_from_file(output_folder + '/job.' + job_id + '.log')
+        file_content = launchGUI.my_file_sys.read_from_file(output_folder + '/job.' + job_id + '.log')
 
         if False != file_content :
 
@@ -209,7 +210,7 @@ def show(self,who):
 
     elif who == 'output':
 
-        file_content = filesys.read_from_file(output_folder + '/job.' + job_id + '.out')
+        file_content = launchGUI.my_file_sys.read_from_file(output_folder + '/job.' + job_id + '.out')
 
         if False != file_content :
 
@@ -235,7 +236,7 @@ def show(self,who):
 
     elif who == 'error':
         
-        file_content = filesys.read_from_file(output_folder + '/job.' + job_id + '.err')
+        file_content = launchGUI.my_file_sys.read_from_file(output_folder + '/job.' + job_id + '.err')
 
         if False != file_content :
 
@@ -303,7 +304,7 @@ def display_question(question,answer_type):
 
         popup.focus_force()
         
-        main.wait_window(popup)
+        launchGUI.main.wait_window(popup)
 
         result = path_txt.get()        
     else:
@@ -373,7 +374,7 @@ at fcc-experiments-sw-devATSPAMNOTcern.ch
 
     popup.focus_force()
     
-    main.wait_window(popup)
+    launchGUI.main.wait_window(popup)
     
 
 #*************************************#
@@ -420,7 +421,7 @@ def import_to_gui(self):
     if filename:
 
         
-        specification , status = filesys.import_specification(filename)
+        specification , status = launchGUI.my_file_sys.import_specification(filename)
 
         if False != status :
     
@@ -455,7 +456,7 @@ def import_to_gui(self):
 
 def save_from_gui(self):
 
-    chosen_batch = filesys.get_batch()
+    chosen_batch = launchGUI.my_file_sys.get_batch()
 
     file = asksaveasfile(mode='w', defaultextension=".spec")
 
@@ -468,9 +469,9 @@ def save_from_gui(self):
         NOR = self.NOR_txt.get()
         NOE = self.NOE_txt.get()
         batch_original_arguments = self.batch_args_txt.get()
-        stdout = ''
-        stderr = ''
-        log = ''
+        stdout = self.stdout_txt.get()
+        stderr = self.stderr_txt.get()
+        log = self.log_txt.get()
 
         files = list(self.files_listbox.get(0, tk.END))
         fcc_input_files =  '' if not files else ' '.join(files)
@@ -478,7 +479,7 @@ def save_from_gui(self):
 
         specification_values = [chosen_batch, fcc_executable, fcc_conf_file, fcc_output_file, NOR, NOE, fcc_input_files,batch_original_arguments,stdout,stderr,log]
                 
-        filesys.save_specification(specification_values,file.name)
+        launchGUI.my_file_sys.save_specification(specification_values,file.name)
 
 #***********************************#
 # Function name : menubar           #
@@ -525,7 +526,7 @@ def set_gui_batch(self,batch):
         self.HTCondor_button.configure(bg = "green")
         self.log_view_button.configure(state=tk.NORMAL)
     
-    filesys.set_batch(batch)
+    launchGUI.my_file_sys.set_batch(batch)
 
 
 

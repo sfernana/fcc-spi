@@ -21,1229 +21,1199 @@ from XRootD.client.flags import DirListFlags, OpenFlags, MkDirFlags, QueryCode
 
 
 
-#Global Variables
 
-#default values if not existing
-HARD_CODED_SOFTWARE_PATH_AFS = "/afs/cern.ch/exp/fcc/sw/0.7"
-sourcingFCCStack = 'source ' + HARD_CODED_SOFTWARE_PATH_AFS + '/init_fcc_stack.sh'
-sourcing_message = "\nPlease ensure that you type the following command every time you want to use FCC softwares : \n" + sourcingFCCStack + '\n'
+class FileSystem():
 
 
 
-output_folder = ''
-error_folder = ''
-log_folder = ''
-batch_folder = ''
-current_job_id = ''
+    def __init__(self):
+    
+        #constants
 
-#batch ouptut directories
-cwd = os.getcwd()
-
-#default script working directory
-result_folder = cwd + '/FCC_SUBMIT/'
-
-#default log of the script
-log_file_name = result_folder + 'fcc_submit_log.txt'
-
-
-#************************************* Functions Definition ***********************************#
+        #default values if not existing
+        self.HARD_CODED_SOFTWARE_PATH_AFS = "/afs/cern.ch/exp/fcc/sw/0.7"
+        self.sourcingFCCStack = 'source ' + self.HARD_CODED_SOFTWARE_PATH_AFS + '/init_fcc_stack.sh'
+        self.sourcing_message = "\nPlease ensure that you type the following command every time you want to use FCC softwares : \n" + self.sourcingFCCStack + '\n'
 
 
 
-#**************************************#
-# Function name : init_fcc_stack       #
-# input : none                         #
-# role : look for the fcc environnement#
-# before running the script            #
-#**************************************#
+        self.output_folder = ''
+        self.error_folder = ''
+        self.log_folder = ''
+        self.batch_folder = ''
+        self.current_job_id = ''
 
-def init_fcc_stack():
+        #batch ouptut directories
+        self.cwd = os.getcwd()
 
-    global HARD_CODED_SOFTWARE_PATH_AFS
-    global HARD_CODED_HEPPY_PATH_AFS
-    global sourcingFCCStack
-    global sourcing_message
-    global sourcingHEPPY
-    global interface
+        #default script working directory
+        self.result_folder = self.cwd + '/FCC_SUBMIT/'
+
+        #default log of the script
+        self.log_file_name = self.result_folder + 'fcc_submit_log.txt'
 
 
-    try:
-        SOFTWARE_PATH_AFS=os.environ["FCCSWPATH"]
-        sourcingFCCStack = 'source ' + SOFTWARE_PATH_AFS + '/init_fcc_stack.sh'
+    #************************************* Functions Definition ***********************************#
 
-    except:
-        print sourcing_message
-        quit()
+
+
+    #**************************************#
+    # Function name : init_fcc_stack       #
+    # input : none                         #
+    # role : look for the fcc environnement#
+    # before running the script            #
+    #**************************************#
+
+    def init_fcc_stack(self):
+
+
+        try:
+            self.SOFTWARE_PATH_AFS=os.environ["FCCSWPATH"]
+            self.sourcingFCCStack = 'source ' + self.SOFTWARE_PATH_AFS + '/init_fcc_stack.sh'
+
+        except:
+            print self.sourcing_message
+            quit()
+            
+
+
+        username = getpass.getuser()
+        initial = username[0]
+
+        self.HARD_CODED_HEPPY_PATH_AFS="/afs/cern.ch/user/"+initial+"/"+username+"/heppy" 
+
+
+        self.sourcingHEPPY = 'source ' + self.HARD_CODED_HEPPY_PATH_AFS + '/init.sh'
+
+
+
+
+    #getters and setters
+
+
+    def set_batch(self,batch):
+        self.chosen_batch = batch
+
+    def get_batch(self):
+        return self.chosen_batch
+
+
+    def set_current_job_id(self,id):
+        self.current_job_id = id
+
+    def set_interface(self,interface_type):
+        self.interface = interface_type
+
+    def get_interface(self):
+        return self.interface
+        
+        
+    def get_last_job_id(self):
+        return self.current_job_id
+
+
+    def get_workspace(self):
+        return self.result_folder, self.batch_folder, self.output_folder, self.error_folder, self.log_folder
         
 
+    #**************************************#
+    # Function name : set_workspace        #
+    # input : folder names                 #
+    # role : create default folders or     #
+    # ones provided by user in arguments   #
+    #**************************************#
 
-    username = getpass.getuser()
-    initial = username[0]
+    def set_workspace(self,stdout,stderr,log):
+        
+         
 
-    HARD_CODED_HEPPY_PATH_AFS="/afs/cern.ch/user/"+initial+"/"+username+"/heppy" 
+        self.batch_folder = self.result_folder + self.chosen_batch.upper()
 
+        self.output_folder =  stdout if stdout !="" else self.batch_folder + '/output'
 
-    sourcingHEPPY = 'source ' + HARD_CODED_HEPPY_PATH_AFS + '/init.sh'
+        self.error_folder = stderr if stderr !="" else self.batch_folder + '/error'
 
-
-
-
-#getters and setters
-
-
-def set_batch(batch):
-    global chosen_batch
-    chosen_batch = batch
-
-def get_batch():
-    global chosen_batch
-    return chosen_batch
+        self.log_folder = log if log !="" else self.batch_folder + '/log'
 
 
-def set_current_job_id(id):
-    global current_job_id
-    current_job_id = id
 
-def set_interface(interface_type):
-    global interface
-    interface = interface_type
-
-def get_interface():
-    global interface
-    return interface
-    
-    
-def get_last_job_id():
-    global current_job_id
-    return current_job_id
+        
+        #because condor output error like : 'file not writtable'
+        
+        #stuff may be not necessary
+            
+        #default permission 
+        old_mask = os.umask(0)
+        #a second call to change the default permissions (0 similar to chmod 777)
+        #like that condor,etc... can write on files ??
+        os.umask(0)
 
 
-def get_workspace():
+        try:
 
-    global output_folder
-    global error_folder
-    global log_folder
-    global batch_folder
-    global result_folder
+            if not os.path.isdir(self.output_folder):
+                os.makedirs(self.output_folder)
 
-    return result_folder, batch_folder, output_folder, error_folder, log_folder
-    
 
-#**************************************#
-# Function name : set_workspace        #
-# input : folder names                 #
-# role : create default folders or     #
-# ones provided by user in arguments   #
-#**************************************#
+            if not os.path.isdir(self.error_folder):    
+                os.makedirs(self.error_folder)
 
-def set_workspace(stdout,stderr,log):
+            #no log given by lsf (bhist does not work)
+            if not os.path.isdir(self.log_folder) and self.chosen_batch == "htcondor":    
+                os.makedirs(self.log_folder)
 
-    global output_folder
-    global error_folder
-    global log_folder
-    global batch_folder
+        except OSError, e:
+            raise
 
-    global chosen_batch
-    global result_folder
-    global cwd
-    
+
+
+    #*************************************************#
+    # Function name : XRootDStatus2Dictionnary        #
+    # input : xroot status                            #
+    # role : parse status object generated by         #
+    # xroot                                           #
+    #*************************************************#
+
+
+    def XRootDStatus2Dictionnary(self,XRootDStatus):
+
+        start = '<'
+        end = '>'
+
+        XRootDStatus2str = str(XRootDStatus)
+        s = XRootDStatus2str
+
+
+        #print XRootDStatus
+        #check the expected line
+        try:
+            
+            status_str = re.search('%s(.*)%s' % (start, end), s).group(1)
+            
+            #print status_str
+        
+            status_list = status_str.split(",")
+
+            status_dict = {}
+
+            #print status_list
+            
+            for infos in status_list:
+                info = infos.split(':')
+                status_dict[info[0]] = info[1]
      
-
-    batch_folder = result_folder + chosen_batch.upper()
-
-
-    output_folder =  stdout if stdout !="" else batch_folder + '/output'
-
-
-    error_folder = stderr if stderr !="" else batch_folder + '/error'
-
-
-    log_folder = log if log !="" else batch_folder + '/log'
+            #to test
+            #status_dict = dict(  (info.split(':')) for info in status_list if '' != info )
 
 
 
-    
-    #because condor output error like : 'file not writtable'
-    
-    #stuff may be not necessary
+            return status_dict    
+        except:
+            self.custom_print('Error',"Path error, please enter a valid path",True) 
+            
+
+
+
+    #*************************************************#
+    # Function name : find_eos_file                   #
+    # input : filename                                #
+    # role : check if file exists on eos              #
+    # before sending the job to the worker            #
+    #*************************************************#
+
+
+    def find_eos_file(self,filename):
+        #then the file is in eos
+        EOS_MGM_URL= 'root://eospublic.cern.ch/'
+
+        eos_file_full_path = EOS_MGM_URL + filename
+
+        with client.File() as eosFile:
+            file_status = eosFile.open(eos_file_full_path,OpenFlags.UPDATE)
+
+
+        #problem with file created directly on eos
+        #no problem with uploded files with (xrdcp)
+
+        #print eos_file_full_path
+        #print file_status
+        status = self.XRootDStatus2Dictionnary(file_status)
+
+        if status[' ok'] == ' False':
+
+            return False
+        else:
+            return eos_file_full_path
+
+
+    #*************************************************#
+    # Function name : find_file                       #
+    # input : filename                                #
+    # role : check if file exists on afs              #
+    # before checking on eos                          #
+    #*************************************************#
+
+    def find_file(self,filename):
         
-    #default permission 
-    old_mask = os.umask(0)
-    #a second call to change the default permissions (0 similar to chmod 777)
-    #like that condor,etc... can write on files ??
-    os.umask(0)
-
-
-    try:
-
-        if not os.path.isdir(output_folder):
-            os.makedirs(output_folder)
-
-
-        if not os.path.isdir(error_folder):    
-            os.makedirs(error_folder)
-
-        #no log given by lsf (bhist does not work)
-        if not os.path.isdir(log_folder) and chosen_batch == "htcondor":    
-            os.makedirs(log_folder)
-
-    except OSError, e:
-        raise
-
-
-
-#*************************************************#
-# Function name : XRootDStatus2Dictionnary        #
-# input : xroot status                            #
-# role : parse status object generated by         #
-# xroot                                           #
-#*************************************************#
-
-
-def XRootDStatus2Dictionnary(XRootDStatus):
-
-    start = '<'
-    end = '>'
-
-    XRootDStatus2str = str(XRootDStatus)
-    s = XRootDStatus2str
-
-
-    #print XRootDStatus
-    #check the expected line
-    try:
-        
-        status_str = re.search('%s(.*)%s' % (start, end), s).group(1)
-        
-        #print status_str
-    
-        status_list = status_str.split(",")
-
-        status_dict = {}
-
-        #print status_list
-        
-        for infos in status_list:
-            info = infos.split(':')
-            status_dict[info[0]] = info[1]
- 
-        #to test
-        #status_dict = dict(  (info.split(':')) for info in status_list if '' != info )
-
-
-
-        return status_dict    
-    except:
-        custom_print('Error',"Path error, please enter a valid path",True) 
         
 
+        #we suppose that the user enter absolute or relative afs path
+        #or only absolute eos path
 
+        if not filename.startswith('/eos/'):
+        #afs path are absolute are relative
+        #because software are stored in this filesystem
+        #and users generally submit their job from afs
 
-#*************************************************#
-# Function name : find_eos_file                   #
-# input : filename                                #
-# role : check if file exists on eos              #
-# before sending the job to the worker            #
-#*************************************************#
+            #print "the file is in afs"
 
+            if os.path.isfile(filename):
+                return os.path.abspath(filename)
+            else:
+                return False
 
-def find_eos_file(filename):
-    #then the file is in eos
-    EOS_MGM_URL= 'root://eospublic.cern.ch/'
-
-    eos_file_full_path = EOS_MGM_URL + filename
-
-    with client.File() as eosFile:
-        file_status = eosFile.open(eos_file_full_path,OpenFlags.UPDATE)
-
-
-    #problem with file created directly on eos
-    #no problem with uploded files with (xrdcp)
-
-    #print eos_file_full_path
-    #print file_status
-    status = XRootDStatus2Dictionnary(file_status)
-
-    if status[' ok'] == ' False':
-
-        return False
-    else:
-        return eos_file_full_path
-
-
-#*************************************************#
-# Function name : find_file                       #
-# input : filename                                #
-# role : check if file exists on afs              #
-# before checking on eos                          #
-#*************************************************#
-
-def find_file(filename):
-    
-    
-
-    #we suppose that the user enter absolute or relative afs path
-    #or only absolute eos path
-
-    if not filename.startswith('/eos/'):
-    #afs path are absolute are relative
-    #because software are stored in this filesystem
-    #and users generally submit their job from afs
-
-        #print "the file is in afs"
-
-        if os.path.isfile(filename):
-            return os.path.abspath(filename)
+        #absolute path
+        elif filename.startswith('/eos/'):
+            #print "the file is in eos"        
+            
+            #eos path are absolute
+            return self.find_eos_file(filename)
+            
         else:
             return False
 
-    #absolute path
-    elif filename.startswith('/eos/'):
-        #print "the file is in eos"        
+
+    #*******************************************************#
+    # Function name : import_specification                  #
+    # input : filename                                      #
+    # role : import the specified file                      #
+    # a specification file store arguments of the command   #
+    #*******************************************************#
+
+
+    def import_specification(self,filename):
+
+
+         
+
+            file_content = self.read_from_file(filename)
+
+            if False != file_content :
+
+                try:
+                    content = file_content.split('\n')
+                    imported_specification = dict(  (info.split('=')) for info in content if '' != info )    
+
+                except:
+                    return [], self.custom_print('Error',"Invalid specification file !",True)
+
+                #print imported_specification
+
+                chosen_batch = imported_specification['chosen_batch'] if 'chosen_batch' in imported_specification else ''
+                fcc_executable = imported_specification['executable'] if 'executable' in imported_specification else ''
+                fcc_conf_file = imported_specification['fcc_conf_file'] if 'fcc_conf_file' in imported_specification else ''
+                fcc_output_file = imported_specification['fcc_output_file'] if 'fcc_output_file' in imported_specification else ''
+                NOR = imported_specification['number_of_runs'] if 'number_of_runs' in imported_specification else ''
+                NOE = imported_specification['number_of_events'] if 'number_of_events' in imported_specification else ''
+                temp_fcc_input_files = imported_specification['fcc_input_files'] if 'fcc_input_files' in imported_specification else ''
+                fcc_input_files = temp_fcc_input_files.split(' ') if temp_fcc_input_files != '' else ''
+
+
+                batch_original_arguments = imported_specification['batch_original_arguments'] if 'batch_original_arguments' in imported_specification else ''
+                stdout = imported_specification['stdout'] if 'stdout' in imported_specification else ''
+                stderr = imported_specification['stderr'] if 'stderr' in imported_specification else ''
+                log = imported_specification['log'] if 'log' in imported_specification else ''
+
+                return [chosen_batch, fcc_executable, fcc_conf_file ,fcc_output_file, NOR , NOE , fcc_input_files ,batch_original_arguments, stdout, stderr, log] , True
+
+            else:
+                return [] , False
+
+
+    #*******************************************************#
+    # Function name : save_specification                    #
+    # input : filename                                      #
+    # role : save spec in the specified file                #
+    # a specification file store arguments of the command   #
+    #*******************************************************#
+
+    def save_specification(self,specification_values,filename):
+
+        specification_keys = ['chosen_batch', 'executable', 'fcc_conf_file', 'fcc_output_file', 'number_of_runs', 'number_of_events', 'fcc_input_files', 'batch_original_arguments', 'stdout', 'stderr', 'log']
+
+        specification_list = []
+
+        for key,value in zip(specification_keys,specification_values):
+            specification_list+= [key + '=' + value]
+
+        specification_text = '\n'.join(specification_list) + '\n'
+
+        self.write2file('w',filename,specification_text)
         
-        #eos path are absolute
-        return find_eos_file(filename)
+
+    #***********************************#
+    # Function name : write2file        #
+    # input : filename and its content  #
+    # role : write the content in a file#
+    #***********************************#
+
+    def write2file(self,operation,filename,filetext):
+
+        try:
+
+            #create file with w permission
+            with open(filename,operation) as text_file:
+                text_file.write(filetext)
+        except:
+             self.custom_print('Error','Error in writting file',False)    
         
-    else:
-        return False
+        
+    #********************************************#
+    # Function name : read_from_file             #
+    # input : filename                           #
+    # role : read a file and return its content  #
+    #********************************************#
+
+        
+    def read_from_file(self,filename):
+
+        try:
+            #create file with w permission
+            with open(filename) as f:
+                content = f.read()
+            return content
+        except:
+            return False
 
 
-#*******************************************************#
-# Function name : import_specification                  #
-# input : filename                                      #
-# role : import the specified file                      #
-# a specification file store arguments of the command   #
-#*******************************************************#
+    #********************************************#
+    # Function name : custom_print               #
+    # input : message and options                #
+    # role : print message to gui or shell       #
+    # if shell, quit in case of error            #
+    # but in gui do not quit,                    #
+    # we can 'replay' action, hence the replay   #
+    # variable                                   #
+    #********************************************#
 
+    def custom_print(self,message_type,message,exit):
+        
+ 
 
-def import_specification(filename):
-
-
-        global chosen_batch
-
-        file_content = read_from_file(filename)
-
-        if False != file_content :
-
-            try:
-                content = file_content.split('\n')
-                imported_specification = dict(  (info.split('=')) for info in content if '' != info )    
-
-            except:
-                return [], custom_print('Error',"Invalid specification file !",True)
-
-            #print imported_specification
-
-            chosen_batch = imported_specification['chosen_batch'] if 'chosen_batch' in imported_specification else ''
-            fcc_executable = imported_specification['executable'] if 'executable' in imported_specification else ''
-            fcc_conf_file = imported_specification['fcc_conf_file'] if 'fcc_conf_file' in imported_specification else ''
-            fcc_output_file = imported_specification['fcc_output_file'] if 'fcc_output_file' in imported_specification else ''
-            NOR = imported_specification['number_of_runs'] if 'number_of_runs' in imported_specification else ''
-            NOE = imported_specification['number_of_events'] if 'number_of_events' in imported_specification else ''
-            temp_fcc_input_files = imported_specification['fcc_input_files'] if 'fcc_input_files' in imported_specification else ''
-            fcc_input_files = temp_fcc_input_files.split(' ') if temp_fcc_input_files != '' else ''
-
-
-            batch_original_arguments = imported_specification['batch_original_arguments'] if 'batch_original_arguments' in imported_specification else ''
-            stdout = imported_specification['stdout'] if 'stdout' in imported_specification else ''
-            stderr = imported_specification['stderr'] if 'stderr' in imported_specification else ''
-            log = imported_specification['log'] if 'log' in imported_specification else ''
-
-            return [chosen_batch, fcc_executable, fcc_conf_file ,fcc_output_file, NOR , NOE , fcc_input_files ,batch_original_arguments, stdout, stderr, log] , True
-
+        if self.interface == 'cli':
+            print message
+            if True == exit:
+                quit()
         else:
-            return [] , False
+            #if interface is gui, it means that gui has perfectly been loaded so no need to make 'try' import
+            #import directly
+            import fcc_submit_gui as gui
+            gui.display_error_message(message_type,message)
+            return False
 
 
-#*******************************************************#
-# Function name : save_specification                    #
-# input : filename                                      #
-# role : save spec in the specified file                #
-# a specification file store arguments of the command   #
-#*******************************************************#
+    #********************************************#
+    # Function name : get_answer                 #
+    # input : question                           #
+    # role : query the user on shell or gui      #
+    # and catch the answer                       #
+    #********************************************#
 
-def save_specification(specification_values,filename):
-
-    specification_keys = ['chosen_batch', 'executable', 'fcc_conf_file', 'fcc_output_file', 'number_of_runs', 'number_of_events', 'fcc_input_files', 'batch_original_arguments', 'stdout', 'stderr', 'log']
-
-    specification_list = []
-
-    for key,value in zip(specification_keys,specification_values):
-        specification_list+= [key + '=' + value]
-
-    specification_text = '\n'.join(specification_list) + '\n'
-
-    write2file('w',filename,specification_text)
-    
-
-#***********************************#
-# Function name : write2file        #
-# input : filename and its content  #
-# role : write the content in a file#
-#***********************************#
-
-def write2file(operation,filename,filetext):
-
-    try:
-
-        #create file with w permission
-        with open(filename,operation) as text_file:
-            text_file.write(filetext)
-    except:
-         custom_print('Error','Error in writting file',False)    
-    
-    
-#********************************************#
-# Function name : read_from_file             #
-# input : filename                           #
-# role : read a file and return its content  #
-#********************************************#
-
-    
-def read_from_file(filename):
-
-    try:
-        #create file with w permission
-        with open(filename) as f:
-            content = f.read()
-        return content
-    except:
-        return False
-
-
-#********************************************#
-# Function name : custom_print               #
-# input : message and options                #
-# role : print message to gui or shell       #
-# if shell, quit in case of error            #
-# but in gui do not quit,                    #
-# we can 'replay' action, hence the replay   #
-# variable                                   #
-#********************************************#
-
-def custom_print(message_type,message,exit):
-    
-    global interface
-
-    if interface == 'cli':
-        print message
-        if True == exit:
-            quit()
-    else:
-        #if interface is gui, it means that gui has perfectly been loaded so no need to make 'try' import
-        #import directly
-        import fcc_submit_gui as gui
-        gui.display_error_message(message_type,message)
-        return False
-
-
-#********************************************#
-# Function name : get_answer                 #
-# input : question                           #
-# role : query the user on shell or gui      #
-# and catch the answer                       #
-#********************************************#
-
-def get_answer(question,answer_type):
-
-    global interface    
-    
-    if interface == 'cli':
-        return raw_input(question).lower()
-    else:
-        #if interface is gui, it means that gui has perfectly been loaded so no need to make 'try' import
-        #import directly
-        import fcc_submit_gui as gui
-        return gui.display_question(question,answer_type)
-
-
-#**********************************************************#
-# Function name : install_software                         #
-# input : software                                         #
-# role : install software (from github) not present        #
-# in afs to the user home directory                        #
-# ie. heppy                                                #
-#**********************************************************#
-
-def install_software(executable_name):
-    
-    global interface    
-    global HARD_CODED_HEPPY_PATH_AFS
-
-    replay = True
-
-    yes = set(['yes','y', 'ye', ''])
-    no = set(['no','n'])
-
-
-    heppy_path = HARD_CODED_HEPPY_PATH_AFS
-
-    answer = get_answer('\nYou plan to use '"heppy"', as it not installed on afs, it must be installed on your user directory :\nIs heppy already installed ? (y/n)\n','short')
-            
-
-
-    if answer in yes:
-
-
-        answer = get_answer('\nThe script will take this location as the default heppy folder :\n' + heppy_path + ' \nEnter yes if you want to continue else no if you want to specify another heppy path) (y/n)\n','short')
-    
-        if answer in no:
-
-            heppy_path = get_answer('Enter the full path of your heppy folder:','long')
-
-            #make sure that the provided folder is a heppy folder and not whatever
-            if not os.path.isdir(heppy_path) or not os.path.isfile(heppy_path + '/bin/' + executable_name) :
-
-                message = '\nThe path "'+ heppy_path +'" is not valid\nInstallation aborted\n'
-                replay = custom_print('Error',message,True)
+    def get_answer(self,question,answer_type):
 
         
-
-        elif answer in yes:
-            if not os.path.isdir(heppy_path):
-                message = '\nHeppy is not installed\nInstallation aborted'
-                replay = custom_print('Error',message,True)
-        else :
-            message = '\nbad answer\nInstallation aborted'
-            replay = custom_print('Error',message,True)
-
-    elif answer in  no:
-        answer = get_answer('Do you want an automatic installation ? (y/n)','short')
-
-
         
+        if self.interface == 'cli':
+            return raw_input(question).lower()
+        else:
+            #if interface is gui, it means that gui has perfectly been loaded so no need to make 'try' import
+            #import directly
+            import fcc_submit_gui as gui
+            return gui.display_question(question,answer_type)
+
+
+    #**********************************************************#
+    # Function name : install_software                         #
+    # input : software                                         #
+    # role : install software (from github) not present        #
+    # in afs to the user home directory                        #
+    # ie. heppy                                                #
+    #**********************************************************#
+
+    def install_software(self,executable_name):
+        
+
+
+        replay = True
+
+        yes = set(['yes','y', 'ye', ''])
+        no = set(['no','n'])
+
+
+        heppy_path = self.HARD_CODED_HEPPY_PATH_AFS
+
+        answer = self.get_answer('\nYou plan to use '"heppy"', as it not installed on afs, it must be installed on your user directory :\nIs heppy already installed ? (y/n)\n','short')
+                
+
+
         if answer in yes:
 
-    
-                    
 
-            try:                         
-                from git import Repo     
-            except:                         
-                #the problem is that when we source the bash script init_fcc_stack.sh                         
-                #it modifies the python path and GIT module can no longer be imported                         
-                #so try to re-add the path to python path
-                    
-                GIT_MODULE_LOCATION = '/usr/lib/python2.6/site-packages/'                          
-                GITDB_MODULE_LOCATION = '/usr/lib64/python2.6/site-packages/'
+            answer = self.get_answer('\nThe script will take this location as the default heppy folder :\n' + heppy_path + ' \nEnter yes if you want to continue else no if you want to specify another heppy path) (y/n)\n','short')
+        
+            if answer in no:
 
-                sys.path.append(GIT_MODULE_LOCATION)
-                sys.path.append(GITDB_MODULE_LOCATION)                              
+                heppy_path = self.get_answer('Enter the full path of your heppy folder:','long')
+
+                #make sure that the provided folder is a heppy folder and not whatever
+                if not os.path.isdir(heppy_path) or not os.path.isfile(heppy_path + '/bin/' + executable_name) :
+
+                    message = '\nThe path "'+ heppy_path +'" is not valid\nInstallation aborted\n'
+                    replay = self.custom_print('Error',message,True)
+
             
-                try:                             
-                    from git import Repo                         
 
-                except ImportError:
-                    message = '\nMissing git libraries\nPlease try manual installation\n'                            
-                    replay = custom_print('Error',message,True)                      
+            elif answer in yes:
+                if not os.path.isdir(heppy_path):
+                    message = '\nHeppy is not installed\nInstallation aborted'
+                    replay = self.custom_print('Error',message,True)
+            else :
+                message = '\nbad answer\nInstallation aborted'
+                replay = self.custom_print('Error',message,True)
 
-            try:
+        elif answer in  no:
+            answer = self.get_answer('Do you want an automatic installation ? (y/n)','short')
 
-                if os.path.isdir(heppy_path):
-                    answer = get_answer('\nHeppy is already installed on this location :\n'+heppy_path+'\nRemove it and process to a new installation ? (y/n)\n','short')
+
             
-                    if answer in yes:
-                        #remove folder and clone from github
-                        shutil.rmtree(heppy_path)
+            if answer in yes:
 
+        
+                        
+
+                try:                         
+                    from git import Repo     
+                except:                         
+                    #the problem is that when we source the bash script init_fcc_stack.sh                         
+                    #it modifies the python path and GIT module can no longer be imported                         
+                    #so try to re-add the path to python path
+                        
+                    GIT_MODULE_LOCATION = '/usr/lib/python2.6/site-packages/'                          
+                    GITDB_MODULE_LOCATION = '/usr/lib64/python2.6/site-packages/'
+
+                    sys.path.append(GIT_MODULE_LOCATION)
+                    sys.path.append(GITDB_MODULE_LOCATION)                              
+                
+                    try:                             
+                        from git import Repo                         
+
+                    except ImportError:
+                        message = '\nMissing git libraries\nPlease try manual installation\n'                            
+                        replay = self.custom_print('Error',message,True)                      
+
+                try:
+
+                    if os.path.isdir(heppy_path):
+                        answer = self.get_answer('\nHeppy is already installed on this location :\n'+heppy_path+'\nRemove it and process to a new installation ? (y/n)\n','short')
+                
+                        if answer in yes:
+                            #remove folder and clone from github
+                            shutil.rmtree(heppy_path)
+
+                            print 'Installation in progress...' 
+                            Repo.clone_from('https://github.com/HEP-FCC/heppy', heppy_path)
+
+                        elif answer in no:
+                            message = '\nInstallation canceled'
+                            replay = self.custom_print('Error',message,True)
+                        else:
+                            message = '\nbad answer\nInstallation aborted'
+                            replay = self.custom_print('Error',message,True)
+
+                    else:
                         print 'Installation in progress...' 
                         Repo.clone_from('https://github.com/HEP-FCC/heppy', heppy_path)
+            
+                except:
+                    message = '\nCloning from the https://github.com/HEP-FCC/heppy git repository produces an error\nHeppy seems to be already installed\nInstallation aborted\n'
+                    replay = self.custom_print('Error',message,True)
+                        
+            elif answer in no:
+                #if manual instalation but heppy installed , continue and do not quit
+               
+                message = """\nPlease follow the instructions in this tutorial :
+    https://github.com/HEP-FCC/heppy
+    Install the repository on your home directory ~:
+    Re-run the script and choose yes when "Is Heppy already installed" is asked
+    After this script will automatically source the file : ~/heppy/init.sh\n"""
 
-                    elif answer in no:
-                        message = '\nInstallation canceled'
-                        replay = custom_print('Error',message,True)
-                    else:
-                        message = '\nbad answer\nInstallation aborted'
-                        replay = custom_print('Error',message,True)
-
-                else:
-                    print 'Installation in progress...' 
-                    Repo.clone_from('https://github.com/HEP-FCC/heppy', heppy_path)
+                replay = self.custom_print('Information',message,True)
         
-            except:
-                message = '\nCloning from the https://github.com/HEP-FCC/heppy git repository produces an error\nHeppy seems to be already installed\nInstallation aborted\n'
-                replay = custom_print('Error',message,True)
-                    
-        elif answer in no:
-            #if manual instalation but heppy installed , continue and do not quit
-           
-            message = """\nPlease follow the instructions in this tutorial :
-https://github.com/HEP-FCC/heppy
-Install the repository on your home directory ~:
-Re-run the script and choose yes when "Is Heppy already installed" is asked
-After this script will automatically source the file : ~/heppy/init.sh\n"""
+            else:
+                message = '\nbad answer\nInstallation aborted\n'
+                replay = self.custom_print('Error',message,True)
+        
+            
 
-            replay = custom_print('Information',message,True)
-    
         else:
             message = '\nbad answer\nInstallation aborted\n'
-            replay = custom_print('Error',message,True)
-    
+            replay = self.custom_print('Error',message,True)
         
 
-    else:
-        message = '\nbad answer\nInstallation aborted\n'
-        replay = custom_print('Error',message,True)
-    
+        if True == replay:
 
-    if True == replay:
+            #generation of the heppy init.sh script
 
-        #generation of the heppy init.sh script
-
-        heppy_init_file_text = []
-        heppy_init_file_text += ['export HEPPY='+heppy_path]
-        heppy_init_file_text += ['export PATH=$HEPPY/bin:$PATH'] 
-        heppy_init_file_text += ['export PYTHONPATH=$HEPPY/..:$PYTHONPATH'] 
-        heppy_init_file_text += ['cp $HEPPY/scripts/*.py $HEPPY/bin/'] 
-        heppy_init_file_text += ['chmod +x $HEPPY/bin/*.py'] 
+            heppy_init_file_text = []
+            heppy_init_file_text += ['export HEPPY='+heppy_path]
+            heppy_init_file_text += ['export PATH=$HEPPY/bin:$PATH'] 
+            heppy_init_file_text += ['export PYTHONPATH=$HEPPY/..:$PYTHONPATH'] 
+            heppy_init_file_text += ['cp $HEPPY/scripts/*.py $HEPPY/bin/'] 
+            heppy_init_file_text += ['chmod +x $HEPPY/bin/*.py'] 
 
 
-        #overwrite init.sh script on heppy folder
+            #overwrite init.sh script on heppy folder
 
-        write2file('w',heppy_path + '/init.sh','\n'.join(heppy_init_file_text))
+            self.write2file('w',heppy_path + '/init.sh','\n'.join(heppy_init_file_text))
 
-        sourcingHEPPY = 'source ' + heppy_path + '/init.sh'
+            self.sourcingHEPPY = 'source ' + heppy_path + '/init.sh'
 
-        #sourcing of the script
-        subprocess.call(sourcingHEPPY,shell=True)
+            #sourcing of the script
+            subprocess.call(self.sourcingHEPPY,shell=True)
 
-    return replay
+        return replay
 
-#*************************************************#
-# Function name : search_executable               #
-# input : executable                              #
-# role : check heppy else print sourcing message  #
-#*************************************************#
+    #*************************************************#
+    # Function name : search_executable               #
+    # input : executable                              #
+    # role : check heppy else print sourcing message  #
+    #*************************************************#
 
-def search_executable(executable):
+    def search_executable(self,executable):
 
-    global interface    
-    
-
-    replay =  True     
-
-    replay = custom_print('Information',"Your executable " + executable + " must be a 'pre-existing' software",False)
-
-    if executable != 'heppy_loop.py':
-    
-
-        message = "\nThe file '" + executable + "' does not exist\nPlease upload your file in an accessible file system (EOS or AFS)\n"
-
-        if interface == 'cli':
-            message += sourcing_message            
         
-        replay = custom_print('Error',message,True)
-    
-    else:    
 
-        replay = install_software(executable)
+        replay =  True     
 
-    return replay
+        replay = self.custom_print('Information',"Your executable " + executable + " must be a 'pre-existing' software",False)
 
-#*************************************************#
-# Function name : generate_bash_script            #
-# input : bash commands and script name           #
-# role : generate bash script                     #
-#*************************************************#
-
-
-def generate_bash_script(commands,script_name):
-
-    global sourcingFCCStack
-    global sourcingHEPPY
-
-
-    shebang = "#!/bin/bash"
-    bash_script_text = [shebang, sourcingFCCStack, sourcingHEPPY] + commands    
-
-
-    #write the temporary job
-    write2file('w',script_name,'\n'.join(bash_script_text) + '\n')    
-
-    #make the job executable and readable for all
-    chmod(script_name,'R')    
-    chmod(script_name,'X')
-
-
-
-#****************************************************#
-# Function name :  get_job_id                        #
-# input : output                                     #
-# role : search id in the standard ouput of batch    #
-#****************************************************#
-
-def get_job_id(batch_output):
-
-    
-    global chosen_batch
-
-    start = '<'
-    end = '>'
-    
-    s = batch_output
-
-    if chosen_batch == 'lsf':
-        job_id_str = re.search('%s(\d+)%s' % (start, end), s)
-    else:    
-        job_id_str = re.search('cluster (\d+\.\d*)',s)
-
-
-    #check the expected line
-    try:
-        job_id = job_id_str.group(1)
+        if executable != 'heppy_loop.py':
         
-        if job_id.endswith('.') : job_id = job_id + '0'
 
+            message = "\nThe file '" + executable + "' does not exist\nPlease upload your file in an accessible file system (EOS or AFS)\n"
 
-    except:
-        custom_print('Error',"\nYour job has probably not been submitted\n"+ chosen_batch.upper() + " outputs an error, please check your configuration\n",False)     
-        job_id = "unkown_id"
-
-    set_current_job_id(job_id)
-    return job_id
-
-
-def get_job_state(batch_output):
-
-    LSF_STATES = ['PEND', 'PSUSP' , 'RUN' , 'USUSP', 'SSUSP' , 'DONE' , 'EXIT', 'UNKWN', 'ZOMBI']
-    HTcondor_STATES = ['U','I', 'R', 'X', 'C', 'H', 'E']
-    
-    """TO DO WAIT FOR ANDRE"""
-    
-    print 'status'    
-
-#****************************************************#
-# Function name :  is_executable_exist               #
-# input : executable                                 #
-# role : search executable in the environnement      #
-#****************************************************#
-
-def is_executable_exist(executable_name):
-
-    #we have a space here (see after how to manage)
-    #./run gaudirun.py
-   
-    if not ' ' in executable_name:
-
-        for path in os.environ["PATH"].split(os.pathsep):
-        #print path
-            for root, dirs, files in os.walk(path):
-                if executable_name in files:
-                #print files
-                    return True
-            return False 
+            if self.interface == 'cli':
+                message += sourcing_message            
             
-    #ie.  ./run gaudirun.py           
-    else:
-
-        dot_slash = './'
-        temp_executable_name = executable_name.split()
-    
-
-    #the first may be the executable
-    filename = temp_executable_name[0]
-
-    if dot_slash in filename:
-        filename = filename.replace(dot_slash,'')
-    
-    searched_file = find_file(filename)
-    
-
-    return searched_file != False
-
-#****************************************************#
-# Function name :  chmod                             #
-# input : permission                                 #
-# role : change permission                           #
-# function created when condor outputs error like :  #
-# 'files not writtable by condor'                    #
-#****************************************************#
-
-def chmod(file,permission):
-
-    #reflet chmod a+permission 
-    #make the file executable for everyone
-    USER_PERMISSION = eval('stat.S_I'+permission+'USR')
-    GROUP_PERMISSION = eval('stat.S_I'+permission+'GRP')
-    OTHER_PERMISSION = eval('stat.S_I'+permission+'OTH')
-
-    PERMISSION = USER_PERMISSION | GROUP_PERMISSION | OTHER_PERMISSION
-
-    #get actual mode of the file
-    mode = os.stat(file).st_mode
-
-    os.chmod(file,mode | PERMISSION)
-
-
-#****************************************************#
-# Function name :  save_history                      #
-# input : job id, batch used ...                     #
-# role : log each submissions                        #
-#****************************************************#
-
-def save_history(job_id, batch, executable, submitted_time):
-
-
-    global log_file_name
-
-    log = []
-
-    if not os.path.isfile(log_file_name):
-        HEADER = 'JOB ID\t\t\tBATCH\t\t\tSUMITTED TIME\t\t\tExecutable'    
-        log += [HEADER]
-
-
-    info = [job_id, batch, submitted_time, executable]
-
-
-
-    log += ['\t\t'.join(info)]
-
-    write2file('a',log_file_name, '\n'.join(log) + '\n')
-
-
-#*******************************************************#
-# Function name :  display_history                      #
-# input : intervalle                                    #
-# role : display history of user submissions            #
-#*******************************************************#
-
-def display_history(intervalle):
-
-
-    global log_file_name
-
-    default_min = 0
-    full = False
-    date_and_time = False
-    date_only = False
-    since = False
-    since_to = False
-    to = False
-    
-    invalid_values = False
-    
-    values = intervalle
-
-
-    if len(values) == 4:
-        user_start_date = values[0]
-        user_start_time = values[1]
-
-        user_end_date = values[2]
-        user_end_time = values[3]
-
-        full = True
-
-        since_to = True
+            replay = self.custom_print('Error',message,True)
         
-        if not (format(user_start_date,'check',"%m/%d/%y") and  format(user_start_time,'check',"%H:%M:%S") and format(user_end_date,'check',"%m/%d/%y") and format(user_end_time,'check',"%H:%M:%S")):
-            invalid_values = True
-    
-    elif len(values) == 2:
-        user_min = values[0]
-        user_max = values[1]
+        else:    
 
-        if format(user_min,'check',"%m/%d/%y") and format(user_max,'check',"%H:%M:%S"):
-            date_and_time = True
-            since = True
-        elif not is_int(user_min) or not is_int(user_max):
-            invalid_values = True
+            replay = self.install_software(executable)
 
+        return replay
+
+    #*************************************************#
+    # Function name : generate_bash_script            #
+    # input : bash commands and script name           #
+    # role : generate bash script                     #
+    #*************************************************#
+
+
+    def generate_bash_script(self,commands,script_name):
+
+     
+
+
+        shebang = "#!/bin/bash"
+        bash_script_text = [shebang, self.sourcingFCCStack, self.sourcingHEPPY] + commands    
+
+
+        #write the temporary job
+        self.write2file('w',script_name,'\n'.join(bash_script_text) + '\n')    
+
+        #make the job executable and readable for all
+        self.chmod(script_name,'R')    
+        self.chmod(script_name,'X')
+
+
+
+    #****************************************************#
+    # Function name :  get_job_id                        #
+    # input : output                                     #
+    # role : search id in the standard ouput of batch    #
+    #****************************************************#
+
+    def get_job_id(self,batch_output):
+
+
+
+        start = '<'
+        end = '>'
         
-    elif len(values)== 1:
+        s = batch_output
 
-        user_min = values[0]
-
-        if format(user_min,'check',"%m/%d/%y"):
-            date_only = True
-            since = True
-        elif not is_int(user_min):
-            invalid_values = True
-  
-    
-    #no values entered so display all history
-    elif len(values)== 0:
-        user_min = 'min'
-        user_max = 'max'
-
-    else:
-        invalid_values = True
-
-    if invalid_values:    
-        custom_print('Error','\nInvalid values\n',True)
+        if self.chosen_batch == 'lsf':
+            job_id_str = re.search('%s(\d+)%s' % (start, end), s)
+        else:    
+            job_id_str = re.search('cluster (\d+\.\d*)',s)
 
 
-
-    if not os.path.isfile(log_file_name):
-        custom_print('Error','\nHistory not available\n',True)
-    else:
-        
-        
-        file_content = read_from_file(log_file_name)
-        file_content_listed = file_content.split('\n')
-
-        histories = filter(None, file_content_listed[1:]) 
-
-        default_max = len(histories) - 1
-
-        
-        if not(date_only or date_and_time or full):
-
-            if 'min' == user_min and 'max' == user_max:
-                user_min = default_min
-                temp_user_max = default_max
-            else:
-
-                if 'user_max' not in locals():
-                    temp_user_max = default_max + 1
-                    user_min= temp_user_max - int(user_min)
-                else:
-                    temp_user_max = int(user_max) - 1
-                    user_min= int(user_min) - 1
-
-
-            end = temp_user_max  if (temp_user_max <= default_max and temp_user_max >= default_min) else default_max
-            start = user_min if (user_min <= end and user_min >= default_min) else default_min
-    
+        #check the expected line
+        try:
+            job_id = job_id_str.group(1)
             
+            if job_id.endswith('.') : job_id = job_id + '0'
+
+
+        except:
+            self.custom_print('Error',"\nYour job has probably not been submitted\n"+ chosen_batch.upper() + " outputs an error, please check your configuration\n",False)     
+            job_id = "unkown_id"
+
+        self.set_current_job_id(job_id)
+        return job_id
+
+
+    def get_job_state(batch_output):
+
+        LSF_STATES = ['PEND', 'PSUSP' , 'RUN' , 'USUSP', 'SSUSP' , 'DONE' , 'EXIT', 'UNKWN', 'ZOMBI']
+        HTcondor_STATES = ['U','I', 'R', 'X', 'C', 'H', 'E']
+        
+        """TO DO WAIT FOR ANDRE"""
+        
+        print 'status'    
+
+    #****************************************************#
+    # Function name :  is_executable_exist               #
+    # input : executable                                 #
+    # role : search executable in the environnement      #
+    #****************************************************#
+
+    def is_executable_exist(self,executable_name):
+
+        #we have a space here (see after how to manage)
+        #./run gaudirun.py
+       
+        if not ' ' in executable_name:
+
+            for path in os.environ["PATH"].split(os.pathsep):
+            #print path
+                for root, dirs, files in os.walk(path):
+                    if executable_name in files:
+                    #print files
+                        return True
+                return False 
+                
+        #ie.  ./run gaudirun.py           
+        else:
+
+            dot_slash = './'
+            temp_executable_name = executable_name.split()
+        
+
+        #the first may be the executable
+        filename = temp_executable_name[0]
+
+        if dot_slash in filename:
+            filename = filename.replace(dot_slash,'')
+        
+        searched_file = self.find_file(filename)
+        
+
+        return searched_file != False
+
+    #****************************************************#
+    # Function name :  chmod                             #
+    # input : permission                                 #
+    # role : change permission                           #
+    # function created when condor outputs error like :  #
+    # 'files not writtable by condor'                    #
+    #****************************************************#
+
+    def chmod(self,file,permission):
+
+        #reflet chmod a+permission 
+        #make the file executable for everyone
+        USER_PERMISSION = eval('stat.S_I'+permission+'USR')
+        GROUP_PERMISSION = eval('stat.S_I'+permission+'GRP')
+        OTHER_PERMISSION = eval('stat.S_I'+permission+'OTH')
+
+        PERMISSION = USER_PERMISSION | GROUP_PERMISSION | OTHER_PERMISSION
+
+        #get actual mode of the file
+        mode = os.stat(file).st_mode
+
+        os.chmod(file,mode | PERMISSION)
+
+
+    #****************************************************#
+    # Function name :  save_history                      #
+    # input : job id, batch used ...                     #
+    # role : log each submissions                        #
+    #****************************************************#
+
+    def save_history(self,job_id, batch, executable, submitted_time):
+
+
+        
+
+        log = []
+
+        if not os.path.isfile(self.log_file_name):
+            HEADER = 'JOB ID\t\t\tBATCH\t\t\tSUMITTED TIME\t\t\tExecutable'    
+            log += [HEADER]
+
+
+        info = [job_id, batch, submitted_time, executable]
+
+
+
+        log += ['\t\t'.join(info)]
+
+        self.write2file('a',self.log_file_name, '\n'.join(log) + '\n')
+
+
+    #*******************************************************#
+    # Function name :  display_history                      #
+    # input : intervalle                                    #
+    # role : display history of user submissions            #
+    #*******************************************************#
+
+    def display_history(self,intervalle):
+
+
+
+        default_min = 0
+        full = False
+        date_and_time = False
+        date_only = False
+        since = False
+        since_to = False
+        to = False
+        
+        invalid_values = False
+        
+        values = intervalle
+
+
+        if len(values) == 4:
+            user_start_date = values[0]
+            user_start_time = values[1]
+
+            user_end_date = values[2]
+            user_end_time = values[3]
+
+            full = True
+
+            since_to = True
+            
+            if not (self.format(user_start_date,'check',"%m/%d/%y") and  self.format(user_start_time,'check',"%H:%M:%S") and self.format(user_end_date,'check',"%m/%d/%y") and self.format(user_end_time,'check',"%H:%M:%S")):
+                invalid_values = True
+        
+        elif len(values) == 2:
+            user_min = values[0]
+            user_max = values[1]
+
+            if self.format(user_min,'check',"%m/%d/%y") and self.format(user_max,'check',"%H:%M:%S"):
+                date_and_time = True
+                since = True
+            elif not self.is_int(user_min) or not self.is_int(user_max):
+                invalid_values = True
+
+            
+        elif len(values)== 1:
+
+            user_min = values[0]
+
+            if self.format(user_min,'check',"%m/%d/%y"):
+                date_only = True
+                since = True
+            elif not self.is_int(user_min):
+                invalid_values = True
+      
+        
+        #no values entered so display all history
+        elif len(values)== 0:
+            user_min = 'min'
+            user_max = 'max'
 
         else:
-        
-            mytimes = []
-            mydates = []
+            invalid_values = True
+
+        if invalid_values:    
+            self.custom_print('Error','\nInvalid values\n',True)
+
+
+
+        if not os.path.isfile(self.log_file_name):
+            self.custom_print('Error','\nHistory not available\n',True)
+        else:
             
-            for history in histories :
-                
-    
-                try:
-                    if '' != history:
-                        mydates += [re.search('\d+/\d+/\d+',history).group(0)]
-                        mytimes += [re.search('\d+:\d+:\d+',history).group(0)]
+            
+            file_content = self.read_from_file(self.log_file_name)
+            file_content_listed = file_content.split('\n')
 
-                except:                    
-                    custom_print('Error','Invalid values',True)
+            histories = filter(None, file_content_listed[1:]) 
 
+            default_max = len(histories) - 1
 
-            if date_and_time or date_only :
+            
+            if not(date_only or date_and_time or full):
 
-
-                #date indexes of interest                
-                date_indexes, time_research = get_closest_date(user_min,mydates,since,since_to,default_max,to)
-                
-                if time_research == None:
-                    start, end = date_indexes[0], date_indexes[1] 
+                if 'min' == user_min and 'max' == user_max:
+                    user_min = default_min
+                    temp_user_max = default_max
                 else:
-                    if date_only:
-                        start, end = get_closest_time('00:00:00',date_indexes,mytimes,mydates,since,since_to,default_max,to)
+
+                    if 'user_max' not in locals():
+                        temp_user_max = default_max + 1
+                        user_min= temp_user_max - int(user_min)
                     else:
-                        start, end = get_closest_time(user_max,date_indexes,mytimes,mydates,since,since_to,default_max,to)
-                
+                        temp_user_max = int(user_max) - 1
+                        user_min= int(user_min) - 1
 
-            elif full:
 
-                invalid_order = False
-
-                #date indexes of interest                
-                date_indexes, time_research = get_closest_date(user_start_date,mydates,since,since_to,default_max,to)
-                
-                if time_research == None:
-                    start = date_indexes
-                else:
-                    start = get_closest_time(user_start_time,date_indexes,mytimes,mydates,since,since_to,default_max,to)
-                                      
-                to = True                        
-                #date indexes of interest                
-                date_indexes, time_research = get_closest_date(user_end_date,mydates,since,since_to,default_max,to)
-                
-                if time_research == None:
-                    end = date_indexes
-                else:
-                    end = get_closest_time(user_end_time,date_indexes,mytimes,mydates,since,since_to,default_max,to)
-                     
-                #check invaid order           
-                if  format(user_start_date,'format',"%m/%d/%y") > format(user_end_date,'format',"%m/%d/%y") :           
-                    invalid_order = True
-                elif ( format(user_start_date,'format',"%m/%d/%y") == format(user_end_date,'format',"%m/%d/%y") ) and ( format(user_start_time,'format',"%H:%M:%S") > format(user_end_time,'format',"%H:%M:%S") ):    
-                    invalid_order = True
-                
-                if invalid_order:    
-                    custom_print('Error','\nInvalid Date Sequence\n',True)
-                                        
-        #end depend on start for no time found in a day
-        end = -1 if (None == start or None == end) else end
-        start = start if None != start else 0        
+                end = temp_user_max  if (temp_user_max <= default_max and temp_user_max >= default_min) else default_max
+                start = user_min if (user_min <= end and user_min >= default_min) else default_min
         
-                                        
-        if start >= default_min and end <= default_max:
+                
 
-            if start == 0 and end == -1 or start > end:
-                header = '\nNO HISTORY FOR THESE DATES\n'  
             else:
-                header = file_content_listed[0]        
-                            
-            print header + '\n' + '\n'.join(histories[start:end+1])
-    
+            
+                mytimes = []
+                mydates = []
+                
+                for history in histories :
+                    
+        
+                    try:
+                        if '' != history:
+                            mydates += [re.search('\d+/\d+/\d+',history).group(0)]
+                            mytimes += [re.search('\d+:\d+:\d+',history).group(0)]
+
+                    except:                    
+                        self.custom_print('Error','Invalid values',True)
+
+
+                if date_and_time or date_only :
+
+
+                    #date indexes of interest                
+                    date_indexes, time_research = self.get_closest_date(user_min,mydates,since,since_to,default_max,to)
+                    
+                    if time_research == None:
+                        start, end = date_indexes[0], date_indexes[1] 
+                    else:
+                        if date_only:
+                            start, end = self.get_closest_time('00:00:00',date_indexes,mytimes,mydates,since,since_to,default_max,to)
+                        else:
+                            start, end = self.get_closest_time(user_max,date_indexes,mytimes,mydates,since,since_to,default_max,to)
+                    
+
+                elif full:
+
+                    invalid_order = False
+
+                    #date indexes of interest                
+                    date_indexes, time_research = self.get_closest_date(user_start_date,mydates,since,since_to,default_max,to)
+                    
+                    if time_research == None:
+                        start = date_indexes
+                    else:
+                        start = self.get_closest_time(user_start_time,date_indexes,mytimes,mydates,since,since_to,default_max,to)
+                                          
+                    to = True                        
+                    #date indexes of interest                
+                    date_indexes, time_research = self.get_closest_date(user_end_date,mydates,since,since_to,default_max,to)
+                    
+                    if time_research == None:
+                        end = date_indexes
+                    else:
+                        end = self.get_closest_time(user_end_time,date_indexes,mytimes,mydates,since,since_to,default_max,to)
+                         
+                    #check invalid order           
+                    if  self.format(user_start_date,'format',"%m/%d/%y") > self.format(user_end_date,'format',"%m/%d/%y") :           
+                        invalid_order = True
+                    elif ( self.format(user_start_date,'format',"%m/%d/%y") == self.format(user_end_date,'format',"%m/%d/%y") ) and ( self.format(user_start_time,'format',"%H:%M:%S") > self.format(user_end_time,'format',"%H:%M:%S") ):    
+                        invalid_order = True
+                    
+                    if invalid_order:    
+                        self.custom_print('Error','\nInvalid Date Sequence\n',True)
+                                            
+            #end depend on start for no time found in a day
+            end = -1 if (None == start or None == end) else end
+            start = start if None != start else 0        
+            
+                                            
+            if start >= default_min and end <= default_max:
+
+                if start == 0 and end == -1 or start > end:
+                    header = '\nNO HISTORY FOR THESE DATES\n'  
+                else:
+                    header = file_content_listed[0]        
+                                
+                print header + '\n' + '\n'.join(histories[start:end+1])
+        
+            else:
+                self.custom_print('Error','\nInvalid Dates\n',True)
+            
+    #*********************************************************#
+    # Function name :  get_closest_date                       #
+    # input : user start date etc...                          #
+    # role : get closest date of a given date/date intervalle #
+    #*********************************************************#
+            
+    def get_closest_date(self,date,date_list,since,since_to,default_max,to):
+
+        time_research = None 
+        user_date = date
+        
+       
+        date = self.format(date,'format',"%m/%d/%y")
+        closest_date = min(date_list, key=lambda t: abs(date - self.format(t,'format',"%m/%d/%y")))
+
+        
+        formated_closest_date = self.format(closest_date,'format',"%m/%d/%y")
+        formated_date = datetime.datetime.strptime(str(date),"%Y-%m-%d %H:%M:%S")
+        
+
+        closest_date_first_occurence = date_list.index(closest_date)
+        closest_date_last_occurence = len(date_list) - date_list[::-1].index(closest_date) - 1
+        last_history_date_index = len(date_list) - 1
+        #if start_day bigger thab current day existing history days, print nothing
+        
+        if since or since_to:
+            #print 'since date action'
+            #if asked date bigger than closest day
+            if formated_date > formated_closest_date:
+                #print 'closest date smaller'
+                #if the history contains old dates only -> print nothing
+                if closest_date_last_occurence == last_history_date_index :
+                    #print 'there is no future date'
+                    
+                    
+                    #it can be start or end
+                    if since_to:
+                        #start
+                        if not to:
+                            start_or_end = None
+                        #end    
+                        else:
+                            start_or_end = closest_date_last_occurence
+                    else:
+                        end = None
+                        start = None
+                                   
+                #if the history contains future dates but far -> print all from next future date
+                else: 
+                    #print 'there is future date !'
+                    next_future_date = closest_date_last_occurence + 1
+                    
+                    
+                    
+                    if since_to:
+                    
+                        if not to:
+                            start_or_end = next_future_date
+                        else:
+                            start_or_end = closest_date_last_occurence
+                    else:    
+                        end = default_max
+                        start = next_future_date
+                        
+            #if history contain events recent than provided date         
+            elif formated_date < formated_closest_date:
+                #print 'closest date bigger'      
+                #print 'there is future date !'
+                
+                
+                
+                if since_to:
+                
+                    if not to:
+                        start_or_end = closest_date_first_occurence
+                    else:
+                    
+                        if closest_date_first_occurence - 1 >= 0:
+                            start_or_end = closest_date_first_occurence - 1
+                        else:
+                            start_or_end = None
+                else:    
+                    end = default_max
+                    start = closest_date_first_occurence
+            
+            #if asked date exist in history(closest strictly equal ==)    
+            else:
+                time_research = 'search'
+             
+                indexes = [i for i,x in enumerate(date_list) if x == closest_date]
+                return indexes , time_research 
+                
+                
+        if since_to:
+            return start_or_end, time_research   
         else:
-            custom_print('Error','\nInvalid Dates\n',True)
+            return [start , end], time_research
+
+    #*********************************************************#
+    # Function name :  get_closest_time                       #
+    # input : user start time etc...                          #
+    # role : get closest time of a given time/time intervalle #               
+    #*********************************************************#
+
         
-#*********************************************************#
-# Function name :  get_closest_date                       #
-# input : user start date etc...                          #
-# role : get closest date of a given date/date intervalle #
-#*********************************************************#
+    def get_closest_time(self,time,closest_dates_indexes,time_list,date_list,since,since_to,default_max,to):
+
+        state = True
+       
         
-def get_closest_date(date,date_list,since,since_to,default_max,to):
+        #here we have corresponding times of selected days
+        if len(closest_dates_indexes)>1:
+            subset = list(itemgetter(*closest_dates_indexes)(time_list))
+        else:
+            subset = [str(time_list[closest_dates_indexes[0]])]
+            
+        
+        absolute_start = closest_dates_indexes[0]
 
-    time_research = None 
-    user_date = date
-    
-   
-    date = format(date,'format',"%m/%d/%y")
-    closest_date = min(date_list, key=lambda t: abs(date - format(t,'format',"%m/%d/%y")))
+         
+        user_time = self.format(time,'format',"%H:%M:%S")
+        closest_time = min(subset, key=lambda t: abs(user_time - self.format(t,'format',"%H:%M:%S")))
 
-    
-    formated_closest_date = format(closest_date,'format',"%m/%d/%y")
-    formated_date = datetime.datetime.strptime(str(date),"%Y-%m-%d %H:%M:%S")
-    
 
-    closest_date_first_occurence = date_list.index(closest_date)
-    closest_date_last_occurence = len(date_list) - date_list[::-1].index(closest_date) - 1
-    last_history_date_index = len(date_list) - 1
-    #if start_day bigger thab current day existing history days, print nothing
-    
-    if since or since_to:
-        #print 'since date action'
-        #if asked date bigger than closest day
-        if formated_date > formated_closest_date:
-            #print 'closest date smaller'
-            #if the history contains old dates only -> print nothing
-            if closest_date_last_occurence == last_history_date_index :
-                #print 'there is no future date'
+
+        formated_closest_time = self.format(closest_time,'format',"%H:%M:%S")
+        formated_user_time = datetime.datetime.strptime(str(user_time),"%Y-%m-%d %H:%M:%S")
+        
+       
+
+         
+        relative_closest_time_first_occurence = subset.index(closest_time)
+
+        
+        absolute_closest_time_first_occurence = absolute_start + relative_closest_time_first_occurence
+        
+        if since or since_to:
+        
+            
+            #there is only more recents events
+            if formated_user_time < formated_closest_time :
+                #print 'there is no old events'
+                #then print from this time ti end
                 
                 
-                #it can be start or end
                 if since_to:
                     #start
                     if not to:
-                        start_or_end = None
-                    #end    
+                
+                        start_or_end = absolute_closest_time_first_occurence
+                     
                     else:
-                        start_or_end = closest_date_last_occurence
-                else:
-                    end = None
-                    start = None
-                               
-            #if the history contains future dates but far -> print all from next future date
-            else: 
-                #print 'there is future date !'
-                next_future_date = closest_date_last_occurence + 1
-                
-                
-                
-                if since_to:
-                
-                    if not to:
-                        start_or_end = next_future_date
-                    else:
-                        start_or_end = closest_date_last_occurence
-                else:    
-                    end = default_max
-                    start = next_future_date
                     
-        #if history contain events recent than provided date         
-        elif formated_date < formated_closest_date:
-            #print 'closest date bigger'      
-            #print 'there is future date !'
-            
-            
-            
-            if since_to:
-            
-                if not to:
-                    start_or_end = closest_date_first_occurence
+                        if absolute_closest_time_first_occurence - 1 >= 0:
+                            start_or_end = absolute_closest_time_first_occurence - 1
+                        else:
+                            start_or_end = None
+                            
                 else:
+                    start = absolute_closest_time_first_occurence
+                    end = default_max     
                 
-                    if closest_date_first_occurence - 1 >= 0:
-                        start_or_end = closest_date_first_occurence - 1
-                    else:
-                        start_or_end = None
-            else:    
-                end = default_max
-                start = closest_date_first_occurence
-        
-        #if asked date exist in history(closest strictly equal ==)    
-        else:
-            time_research = 'search'
-         
-            indexes = [i for i,x in enumerate(date_list) if x == closest_date]
-            return indexes , time_research 
-            
-            
-    if since_to:
-        return start_or_end, time_research   
-    else:
-        return [start , end], time_research
-
-#*********************************************************#
-# Function name :  get_closest_time                       #
-# input : user start time etc...                          #
-# role : get closest time of a given time/time intervalle #               
-#*********************************************************#
-
-    
-def get_closest_time(time,closest_dates_indexes,time_list,date_list,since,since_to,default_max,to):
-
-    state = True
-   
-    
-    #here we have corresponding times of selected days
-    if len(closest_dates_indexes)>1:
-        subset = list(itemgetter(*closest_dates_indexes)(time_list))
-    else:
-        subset = [str(time_list[closest_dates_indexes[0]])]
-        
-    
-    absolute_start = closest_dates_indexes[0]
-
-     
-    user_time = format(time,'format',"%H:%M:%S")
-    closest_time = min(subset, key=lambda t: abs(user_time - format(t,'format',"%H:%M:%S")))
-
-
-
-    formated_closest_time = format(closest_time,'format',"%H:%M:%S")
-    formated_user_time = datetime.datetime.strptime(str(user_time),"%Y-%m-%d %H:%M:%S")
-    
-   
-
-     
-    relative_closest_time_first_occurence = subset.index(closest_time)
-
-    
-    absolute_closest_time_first_occurence = absolute_start + relative_closest_time_first_occurence
-    
-    if since or since_to:
-    
-        
-        #there is only more recents events
-        if formated_user_time < formated_closest_time :
-            #print 'there is no old events'
-            #then print from this time ti end
-            
-            
-            if since_to:
-                #start
-                if not to:
-            
-                    start_or_end = absolute_closest_time_first_occurence
-                 
-                else:
-                
-                    if absolute_closest_time_first_occurence - 1 >= 0:
-                        start_or_end = absolute_closest_time_first_occurence - 1
-                    else:
-                        start_or_end = None
+            #the closest is smaller
+            elif formated_user_time > formated_closest_time :   
+                #print 'there is old events'
+                #check if there is next time far but bigger or pick the first of next day
+                #if in the times of the day there is more recent time     
+                if (relative_closest_time_first_occurence + 1) < len(subset):
+                    #print 'there is bigger time in your day'
+                    
+                    
+                    if since_to:
+                        if not to:
                         
-            else:
-                start = absolute_closest_time_first_occurence
-                end = default_max     
-            
-        #the closest is smaller
-        elif formated_user_time > formated_closest_time :   
-            #print 'there is old events'
-            #check if there is next time far but bigger or pick the first of next day
-            #if in the times of the day there is more recent time     
-            if (relative_closest_time_first_occurence + 1) < len(subset):
-                #print 'there is bigger time in your day'
-                
-                
-                if since_to:
-                    if not to:
-                    
-                        start_or_end = absolute_closest_time_first_occurence + 1
-                  
-                    else:
-                        start_or_end = absolute_closest_time_first_occurence          
-                else:
-                    start = absolute_closest_time_first_occurence + 1
-                    end = default_max
-            
-            
-             
-            #user time bigger but no history after this time on this day
-            #so check the next day 
-            else:
-                #if there is no next day 
-                if absolute_start + len(subset) >= len(time_list):
-                    #print 'there is no next day'
-                    
-                    
-                    if since_to:
-                        if not to :
-                            start_or_end = None    
+                            start_or_end = absolute_closest_time_first_occurence + 1
+                      
                         else:
-                    
-                            start_or_end = absolute_closest_time_first_occurence
+                            start_or_end = absolute_closest_time_first_occurence          
                     else:
-                        start = None
-                        end = None
-                    
-                else:
-              
-                    
-                    if since_to:
-                        if not to :
-                            start_or_end =  absolute_start + len(subset)
-                        else:
-                            start_or_end =  absolute_closest_time_first_occurence
-                    else:
-                        start = absolute_start + len(subset)
+                        start = absolute_closest_time_first_occurence + 1
                         end = default_max
+                
+                
+                 
+                #user time bigger but no history after this time on this day
+                #so check the next day 
+                else:
+                    #if there is no next day 
+                    if absolute_start + len(subset) >= len(time_list):
+                        #print 'there is no next day'
+                        
+                        
+                        if since_to:
+                            if not to :
+                                start_or_end = None    
+                            else:
+                        
+                                start_or_end = absolute_closest_time_first_occurence
+                        else:
+                            start = None
+                            end = None
+                        
+                    else:
+                  
+                        
+                        if since_to:
+                            if not to :
+                                start_or_end =  absolute_start + len(subset)
+                            else:
+                                start_or_end =  absolute_closest_time_first_occurence
+                        else:
+                            start = absolute_start + len(subset)
+                            end = default_max
 
-        #closest time equal user time
-        else:
-        
-            if since_to:
-   
-                start_or_end =  absolute_closest_time_first_occurence
+            #closest time equal user time
             else:
-                start = absolute_closest_time_first_occurence
-                end = default_max
-    
-    
-    if since :                
-        return start,end     
-    else :                
-        return start_or_end
-        
-#data type checking and format
-
             
-def format(date_time,operation,string_format):
+                if since_to:
+       
+                    start_or_end =  absolute_closest_time_first_occurence
+                else:
+                    start = absolute_closest_time_first_occurence
+                    end = default_max
+        
+        
+        if since :                
+            return start,end     
+        else :                
+            return start_or_end
+            
+    #data type checking and format
 
- 
-    try:
-        result = datetime.datetime.strptime(date_time,string_format) 
-        if operation == 'check':
+                
+    def format(self,date_time,operation,string_format):
+
+     
+        try:
+            result = datetime.datetime.strptime(date_time,string_format) 
+            if operation == 'check':
+                return True
+            else:
+                return result    
+        except:
+
+            if operation == 'check':
+                return False
+            else:                        
+                self.custom_print('Error','Invalid values',True)
+                 
+            
+            
+    def is_int(self,input):
+        try: 
+            int(input)
             return True
-        else:
-            return result    
-    except:
-
-        if operation == 'check':
+        except ValueError:
             return False
-        else:                        
-            custom_print('Error','Invalid values',True)
-             
-        
-        
-def is_int(input):
-    try: 
-        int(input)
-        return True
-    except ValueError:
-        return False
 
 
 

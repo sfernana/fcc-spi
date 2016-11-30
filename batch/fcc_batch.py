@@ -7,11 +7,9 @@ import subprocess
 import time
 import os
 
-#user libraries
-import fcc_file_system as filesys
 
 
-#global variables
+#constants
 submitFileName = 'user_submit_file.sub'
 jobFileName = 'user_temp_job.sh'
 
@@ -31,7 +29,7 @@ jobFileName = 'user_temp_job.sh'
 
 
         
-def submit_bash(specification):
+def submit_bash(my_file_sys, specification):
     
 
     #if gui problem (i.e invalid number for number of events)
@@ -42,7 +40,7 @@ def submit_bash(specification):
 
     #these 3 first are mandatory or have default values
     chosen_batch = specification['batch']
-    filesys.set_batch(chosen_batch)
+    my_file_sys.set_batch(chosen_batch)
 
     fcc_executable = specification['fcc_executable']
     fcc_conf_file = specification['fcc_conf_file']
@@ -54,21 +52,21 @@ def submit_bash(specification):
 
 
     #check if the executable is in known paths
-    if not filesys.is_executable_exist(fcc_executable):
-        replay = filesys.search_executable(fcc_executable)
+    if not my_file_sys.is_executable_exist(fcc_executable):
+        replay = my_file_sys.search_executable(fcc_executable)
             
 
     #check if the configuration file exist
-    if filesys.find_file(fcc_conf_file) == False:
+    if my_file_sys.find_file(fcc_conf_file) == False:
         message = "\nThe file '" + fcc_conf_file + "' does not exist\nPlease upload your file in an accessible file system (EOS or AFS)\n"
-        replay =  filesys.custom_print('Error',message,True)
+        replay =  my_file_sys.custom_print('Error',message,True)
 
     #do the same for input files...
     if '' != fcc_input_files :
         for file in fcc_input_files:
-            if filesys.find_file(file) == False:
+            if my_file_sys.find_file(file) == False:
                 message = "\nThe file '" + file + "' does not exist\nPlease upload your file in an accessible file system (EOS or AFS)\n"
-                replay = filesys.custom_print('Error',message,True)
+                replay = my_file_sys.custom_print('Error',message,True)
 
 
     stdout = specification['stdout']
@@ -79,22 +77,22 @@ def submit_bash(specification):
     if '' != stdout:   
         if not os.path.isdir(stdout):
             message = "\nThe folder '" + stdout + "' does not exist\nPlease upload your file in an accessible file system (EOS or AFS)\n"
-            replay = filesys.custom_print('Error',message,True)
+            replay = my_file_sys.custom_print('Error',message,True)
     if '' != stderr:   
         if not os.path.isdir(stderr):
             message = "\nThe folder '" + stderr + "' does not exist\nPlease upload your file in an accessible file system (EOS or AFS)\n"
-            replay = filesys.custom_print('Error',message,True)
+            replay = my_file_sys.custom_print('Error',message,True)
             
     if '' != log:   
         if not os.path.isdir(log):
             message = "\nThe folder '" + log + "' does not exist\nPlease upload your file in an accessible file system (EOS or AFS)\n"
-            replay = filesys.custom_print('Error',message,True)            
+            replay = my_file_sys.custom_print('Error',message,True)            
 
     #**************************************************MINIMUM REQUIREMENTS CHECKING*******************************************************#
 
 
     #once we obtain folder names, we create them
-    filesys.set_workspace(stdout,stderr,log)
+    my_file_sys.set_workspace(stdout,stderr,log)
         
 
     number_of_events = "-N " + str(specification['number_of_events']) if specification['number_of_events'] != "" else "" 
@@ -106,7 +104,7 @@ def submit_bash(specification):
     batch_original_arguments = specification['batch_original_arguments'] 
 
 
-    result_folder, batch_folder, output_folder, error_folder , log_folder = filesys.get_workspace()    
+    result_folder, batch_folder, output_folder, error_folder , log_folder = my_file_sys.get_workspace()    
 
 
         
@@ -125,7 +123,7 @@ def submit_bash(specification):
             submitFile_configuration['log'] = log_folder + '/job.$(ClusterId).$(ProcId).log'
             submitFile_configuration['error'] = error_folder + '/job.$(ClusterId).$(ProcId).err'
             submitFile_configuration['send_credential'] = 'True'
-            submitFile_configuration['queue'] = number_of_runs
+            submitFile_configuration['queue'] = str(number_of_runs)
         
             
             #file transfer mechanism if needed
@@ -144,7 +142,7 @@ def submit_bash(specification):
 
             submitFileText = '\n'.join(submitFileList) + '\n'
             
-            filesys.write2file('w',submitFileName,submitFileText)
+            my_file_sys.write2file('w',submitFileName,submitFileText)
 
 
             submitCommand = "condor_submit " + submitFileName + " " + batch_original_arguments    
@@ -177,7 +175,7 @@ def submit_bash(specification):
         bash_commands = [fcc_executable + " " + fcc_output_file  +" " + fcc_conf_file +" "+ number_of_events]
 
         #generate bash script
-        filesys.generate_bash_script(bash_commands,jobFileName)
+        my_file_sys.generate_bash_script(bash_commands,jobFileName)
 
 
         print "submitCommand"
@@ -195,7 +193,7 @@ def submit_bash(specification):
         #we pick the batch ouptut and add it to our custom output
         
         batch_output_str = str(batch_output)
-        job_id = filesys.get_job_id(batch_output_str)
+        job_id = my_file_sys.get_job_id(batch_output_str)
 
         #special features
         #monitoring files to pick status of jobs without user interaction (condor_q etc..)
@@ -203,7 +201,7 @@ def submit_bash(specification):
         #polling(cross-platform) method (in a other process), not ideal but :
         #libnotify work on linux only
         #pyinotify work only on linux too but not installed
-        #cross-platform best solutions are watchdog and QFileSystemWatcher but not installed on lxplus
+        #cross-platform best solutions are watchdog and Qmy_file_systemWatcher but not installed on lxplus
         #fcc_file_monitor.py squelleton I wrote :        
         #subprocess.Popen(['python','fcc_file_monitor.py','--files' ,stdout_file_name ,stderr_file_name, '--dirs','output', 'error', '--jobid',job_id ,'--cwd', batchFolder ])
 
@@ -223,7 +221,7 @@ def submit_bash(specification):
         if stderr !='': information+= ["You defined '" + error_folder + "' as the standard error of your job"]
         if log !='': information+= ["You defined '" + log_folder + "' as the standard log of your job"]
         
-        interface = filesys.get_interface()
+        interface = my_file_sys.get_interface()
         
         if interface == 'gui':
               
@@ -239,10 +237,10 @@ def submit_bash(specification):
         information+= ["\n---------------------------------------"+ chosen_batch.upper() +" SUBMISSION------------------------------------\n"]
 
         #we log the submission
-        filesys.save_history(job_id, chosen_batch.upper(), fcc_executable, time.strftime("%m/%d/%y %H:%M:%S"))
+        my_file_sys.save_history(job_id, chosen_batch.upper(), fcc_executable, time.strftime("%m/%d/%y %H:%M:%S"))
     
         #we print custom output
-        filesys.custom_print('Information','\n'.join(information),True) 
+        my_file_sys.custom_print('Information','\n'.join(information),True) 
 
     
 def submit_from_python_api():

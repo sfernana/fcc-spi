@@ -40,6 +40,8 @@ import os
 #user libraries
 import fcc_file_system as filesys
 
+#create instance of FileSystem Class for cli and gui
+my_file_sys = filesys.FileSystem()
 
 #************************************* Functions Definition ***********************************#
 
@@ -58,7 +60,9 @@ def parser():
     #initially we set the interface type
     #because some functions like 'custom_print' have not the same behaviour according to the interface
     
-    filesys.set_interface('cli')
+    
+    
+    my_file_sys.set_interface('cli')
 
     username = getpass.getuser()
 
@@ -94,19 +98,7 @@ def parser():
     args, unknown_args = parser.parse_known_args()
 
     if args.gui:
-        #import gui packages when gui is asked
-        #do not import everytime packages that they will not be used
-        try:    
-            #global because import is inside the local function parser()
-            global fcc_submit_gui
-            import fcc_submit_gui
-            return "gui"
-        except ImportError as e:
-            #if packages are not available in lxplus print installation error
-            #error raised by fcc_submit_gui , check this script to see the content of e
-            print e
-            quit()
-
+        return 'gui'
 
     if args.bsub_help :
         #call create a child process of this script
@@ -127,7 +119,7 @@ def parser():
         quit()
     elif None != args.history :
         print "\n---------------------------------------FCC_SUBMIT HISTORY------------------------------------\n"
-        filesys.display_history(args.history)
+        my_file_sys.display_history(args.history)
         print "\n---------------------------------------FCC_SUBMIT HISTORY------------------------------------\n"
         quit()
     elif args.condor_history :
@@ -179,7 +171,7 @@ def parser():
     
         if os.path.exists(file):        
 
-            specification , status = filesys.import_specification(file)
+            specification , status = my_file_sys.import_specification(file)
 
             if False != status :
 
@@ -207,9 +199,9 @@ def parser():
 
                 answer = raw_input('Is this specification satisfies you ? (y/n)').lower()
                 if answer in no:
-                    filesys.custom_print('Error','Importation of the specification aborted',True)                    
+                    my_file_sys.custom_print('Error','Importation of the specification aborted',True)                    
             else:
-               filesys.custom_print('Error','Importation of the specification aborted',True)    
+               my_file_sys.custom_print('Error','Importation of the specification aborted',True)    
 
         else:
             print "The file " + file + " does not exist"
@@ -246,17 +238,12 @@ def parser():
         print "\n---------------------------------------SPECIFICATION SAVING------------------------------------\n"
         file = args.save_file
         specification_values = [chosen_batch, fcc_executable, fcc_conf_file, fcc_output_file, NOR, NOE, ' '.join(fcc_input_files),batch_original_arguments,stdout,stderr,log]
-        filesys.save_specification(specification_values,file)
+        my_file_sys.save_specification(specification_values,file)
 
         print "The current specification has been saved in the file " + file
         print "\n---------------------------------------SPECIFICATION SAVING------------------------------------\n"
 
-    #after all these 'routine' checking we can import 
-    #user libraries
-    global batch
-    import fcc_batch as batch
-
-                
+          
     specification = {}
 
     #mandatory and batch default value is htcondor    
@@ -317,18 +304,31 @@ def launchCLI():
     #print configuration
 
     #at this point, after 'routines' checking, we check fcc environnement 
-    filesys.init_fcc_stack()
+    my_file_sys.init_fcc_stack()
     
     #if the option "gui" is specified so launch the GUI
     if specification=="gui":
         #we do not import at the begenning else it will import tk libraries that may be not used if cli is chosen    
-        global fcc_submit_gui
-        filesys.set_interface('gui')    
-        fcc_submit_gui.launchGUI()
+         #import gui packages when gui is asked
+        #do not import everytime packages that they will not be used
+        try:    
+            
+            import fcc_submit_gui
+        except ImportError as e:
+            #if packages are not available in lxplus print installation error
+            #error raised by fcc_submit_gui , check this script to see the content of e
+            print e
+            quit()
+            
+            
+        my_file_sys.set_interface('gui')    
+        fcc_submit_gui.launchGUI(my_file_sys)
         
     else:
-        global batch
-        batch.submit_bash(specification)
+        #after all these 'routine' checking we can import 
+        #user libraries
+        import fcc_batch as batch
+        batch.submit_bash(my_file_sys,specification)
 
 
 #********************************** MAIN **************************************#
