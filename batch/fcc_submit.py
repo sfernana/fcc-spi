@@ -78,7 +78,7 @@ def parser():
     parser.add_argument("--gui", action="store_true",dest="gui",help="Launch the GUI Interface")
     parser.add_argument("-N", action="store",dest="number_of_events", default="", help="Number of events you want to generate")
     parser.add_argument("--runs", action="store",dest="number_of_runs",default="1",help="The number of runs you want.")
-    parser.add_argument("--hist","--history", action="store",dest="history",nargs='*',type=str,help="history of all submissions, ie --hist 2 (the last 2 jobs), --hist 11/21/2016 11/25/2016 (2 days history), --hist 10 20 (jobs from the 10th until 20st), --hist 11/21/2016 (all jobs from this date)")
+    parser.add_argument("--hist","--history", action="store",dest="history",nargs='*',type=str,help="history of all submissions, ie --hist 2 (the last 2 jobs), --hist 11/21/2016 08:00:00 11/22/2016 08:00:00 (2 days history), --hist 10 20 (jobs from the 10th until 20st), --hist 11/21/2016 13:00:00 (all jobs from this date and time)")
     parser.add_argument("--bhist","--bhistory", action="store_true",dest="lsf_history",help="history of your lsf submissions")
     parser.add_argument("--chist","--chistory", action="store_true",dest="condor_history",help="history of your condor submissions")
     parser.add_argument("--bstat","--bjobs", action="store_true",dest="lsf_status",help="Display the status of your lsf jobs")

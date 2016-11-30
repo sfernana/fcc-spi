@@ -11,8 +11,10 @@ import stat
 import getpass
 import shutil
 import time
+import datetime 
 from dateutil.parser import parse
-
+from operator import itemgetter
+                
 #Xroot python api used for eos
 from XRootD import client
 from XRootD.client.flags import DirListFlags, OpenFlags, MkDirFlags, QueryCode
@@ -256,7 +258,7 @@ def find_eos_file(filename):
 
 
     #problem with file created directly on eos
-    #no problem with dowloded files with (xrdcp)
+    #no problem with uploded files with (xrdcp)
 
     #print eos_file_full_path
     #print file_status
@@ -700,6 +702,16 @@ def get_job_id(batch_output):
     set_current_job_id(job_id)
     return job_id
 
+
+def get_job_state(batch_output):
+
+    LSF_STATES = ['PEND', 'PSUSP' , 'RUN' , 'USUSP', 'SSUSP' , 'DONE' , 'EXIT', 'UNKWN', 'ZOMBI']
+    HTcondor_STATES = ['U','I', 'R', 'X', 'C', 'H', 'E']
+    
+    """TO DO WAIT FOR ANDRE"""
+    
+    print 'status'    
+
 #****************************************************#
 # Function name :  is_executable_exist               #
 # input : executable                                 #
@@ -793,7 +805,7 @@ def save_history(job_id, batch, executable, submitted_time):
 #*******************************************************#
 # Function name :  display_history                      #
 # input : intervalle                                    #
-# role : display history of submissions to the user     #
+# role : display history of user submissions            #
 #*******************************************************#
 
 def display_history(intervalle):
@@ -802,12 +814,15 @@ def display_history(intervalle):
     global log_file_name
 
     default_min = 0
-    dates = False
-    times = False
     full = False
-    time_and_date = False
     date_and_time = False
-
+    date_only = False
+    since = False
+    since_to = False
+    to = False
+    
+    invalid_values = False
+    
     values = intervalle
 
 
@@ -818,65 +833,62 @@ def display_history(intervalle):
         user_end_date = values[2]
         user_end_time = values[3]
 
-        dates = True
-        times = True
         full = True
 
-        if not (is_date(user_start_date) and  is_time(user_start_time) and is_date(user_end_date) and is_time(user_end_time)):
-            custom_print('Error','Invalid values',True)
+        since_to = True
+        
+        if not (format(user_start_date,'check',"%m/%d/%y") and  format(user_start_time,'check',"%H:%M:%S") and format(user_end_date,'check',"%m/%d/%y") and format(user_end_time,'check',"%H:%M:%S")):
+            invalid_values = True
     
     elif len(values) == 2:
         user_min = values[0]
         user_max = values[1]
 
-        if is_date(user_min) and is_date(user_max):
-            dates = True
-        elif is_time(user_min) and is_time(user_max):            
-            times = True
-        elif is_date(user_min) and is_time(user_max):
+        if format(user_min,'check',"%m/%d/%y") and format(user_max,'check',"%H:%M:%S"):
             date_and_time = True
-            times = True
-            dates = True
-        elif is_time(user_min) and is_date(user_max):
-            time_and_date = True            
-            times = True
-            dates = True
+            since = True
         elif not is_int(user_min) or not is_int(user_max):
-            custom_print('Error','Invalid values',True)
+            invalid_values = True
 
+        
     elif len(values)== 1:
 
         user_min = values[0]
 
-        if is_date(user_min):
-            dates = True
-        elif is_time(user_min):
-            times = True
+        if format(user_min,'check',"%m/%d/%y"):
+            date_only = True
+            since = True
         elif not is_int(user_min):
-            custom_print('Error','Invalid values',True)
-
+            invalid_values = True
+  
+    
+    #no values entered so display all history
     elif len(values)== 0:
         user_min = 'min'
         user_max = 'max'
 
     else:
-        custom_print('Error','Invalid values',True)
-    
+        invalid_values = True
 
-    
+    if invalid_values:    
+        custom_print('Error','\nInvalid values\n',True)
 
-    if os.path.isfile(log_file_name):
+
+
+    if not os.path.isfile(log_file_name):
+        custom_print('Error','\nHistory not available\n',True)
+    else:
+        
+        
         file_content = read_from_file(log_file_name)
         file_content_listed = file_content.split('\n')
 
-        histories = file_content_listed[1:]
+        histories = filter(None, file_content_listed[1:]) 
 
         default_max = len(histories) - 1
 
         
-
-
-        if not dates and not times:
+        if not(date_only or date_and_time or full):
 
             if 'min' == user_min and 'max' == user_max:
                 user_min = default_min
@@ -884,17 +896,14 @@ def display_history(intervalle):
             else:
 
                 if 'user_max' not in locals():
-                    temp_user_max = default_max
-                else:
-                    temp_user_max = int(user_max)
-
-                if 'user_max' not in locals():
+                    temp_user_max = default_max + 1
                     user_min= temp_user_max - int(user_min)
                 else:
+                    temp_user_max = int(user_max) - 1
                     user_min= int(user_min) - 1
 
 
-            end = temp_user_max if (temp_user_max <= default_max and temp_user_max >= default_min) else default_max
+            end = temp_user_max  if (temp_user_max <= default_max and temp_user_max >= default_min) else default_max
             start = user_min if (user_min <= end and user_min >= default_min) else default_min
     
             
@@ -904,10 +913,6 @@ def display_history(intervalle):
             mytimes = []
             mydates = []
             
-            old_date = None
-            old_time = None
-
-
             for history in histories :
                 
     
@@ -920,131 +925,319 @@ def display_history(intervalle):
                     custom_print('Error','Invalid values',True)
 
 
-            if date_and_time or time_and_date:
-
-                try:    
-                    formated_user_date = time.strptime(user_min, "%m/%d/%y") if (date_and_time or time_and_date) else time.strptime(user_max, "%m/%d/%y")
-
-                except:                    
-                    custom_print('Error','Invalid values',True)
-
-                user_time = user_max if date_and_time else user_min
+            if date_and_time or date_only :
 
 
-                for index,(mydate, mytime) in enumerate(zip(mydates,mytimes)):
-
-                    try:
-                        formated_history_date = time.strptime(mydate, "%m/%d/%y")
-                    except:                    
-                        custom_print('Error','Invalid values',True)            
-                    
-                #    print formated_user_date >= formated_history_date 
-                    #print user_time >= mytime
-                    #print old_time , old_date
-
-                    if formated_user_date >= formated_history_date and user_time >= mytime :
-                        start = index + 1
-                        print index
-            
-
-                end = default_max
-
+                #date indexes of interest                
+                date_indexes, time_research = get_closest_date(user_min,mydates,since,since_to,default_max,to)
+                
+                if time_research == None:
+                    start, end = date_indexes[0], date_indexes[1] 
+                else:
+                    if date_only:
+                        start, end = get_closest_time('00:00:00',date_indexes,mytimes,mydates,since,since_to,default_max,to)
+                    else:
+                        start, end = get_closest_time(user_max,date_indexes,mytimes,mydates,since,since_to,default_max,to)
+                
 
             elif full:
 
-                start = None
+                invalid_order = False
+
+                #date indexes of interest                
+                date_indexes, time_research = get_closest_date(user_start_date,mydates,since,since_to,default_max,to)
                 
-                try:
-                    formated_user_start_date = time.strptime(user_start_date, "%m/%d/%y")
-                    formated_user_end_date = time.strptime(user_end_date, "%m/%d/%y")
+                if time_research == None:
+                    start = date_indexes
+                else:
+                    start = get_closest_time(user_start_time,date_indexes,mytimes,mydates,since,since_to,default_max,to)
+                                      
+                to = True                        
+                #date indexes of interest                
+                date_indexes, time_research = get_closest_date(user_end_date,mydates,since,since_to,default_max,to)
                 
-                except:                    
-                    custom_print('Error','Invalid values',True)
+                if time_research == None:
+                    end = date_indexes
+                else:
+                    end = get_closest_time(user_end_time,date_indexes,mytimes,mydates,since,since_to,default_max,to)
+                     
+                #check invaid order           
+                if  format(user_start_date,'format',"%m/%d/%y") > format(user_end_date,'format',"%m/%d/%y") :           
+                    invalid_order = True
+                elif ( format(user_start_date,'format',"%m/%d/%y") == format(user_end_date,'format',"%m/%d/%y") ) and ( format(user_start_time,'format',"%H:%M:%S") > format(user_end_time,'format',"%H:%M:%S") ):    
+                    invalid_order = True
+                
+                if invalid_order:    
+                    custom_print('Error','\nInvalid Date Sequence\n',True)
+                                        
+        #end depend on start for no time found in a day
+        end = -1 if (None == start or None == end) else end
+        start = start if None != start else 0        
+        
+                                        
+        if start >= default_min and end <= default_max:
 
-                for index,(mydate, mytime) in enumerate(zip(mydates,mytimes)):
-
-
-                    try:
-                        formated_history_date = time.strptime(mydate, "%m/%d/%y")
-                    except:                    
-                        custom_print('Error','Invalid values',True) 
-
-               
-                    
-                    if formated_user_start_date <= formated_history_date and user_start_time <= mytime and mytime != old_time and formated_history_date != old_date:
-                        start = index   
-                    if formated_history_date < formated_user_start_date:
-                        end = index + 1
-                    elif formated_history_date == formated_user_end_date and user_end_time >= mytime:       
-                        end = index + 1
-                        
-                    old_time = mytime
-                    old_date = formated_history_date
-                    
-
+            if start == 0 and end == -1 or start > end:
+                header = '\nNO HISTORY FOR THESE DATES\n'  
             else:
-                if dates:
+                header = file_content_listed[0]        
+                            
+            print header + '\n' + '\n'.join(histories[start:end+1])
+    
+        else:
+            custom_print('Error','\nInvalid Dates\n',True)
+        
+#*********************************************************#
+# Function name :  get_closest_date                       #
+# input : user start date etc...                          #
+# role : get closest date of a given date/date intervalle #
+#*********************************************************#
+        
+def get_closest_date(date,date_list,since,since_to,default_max,to):
+
+    time_research = None 
+    user_date = date
+    
+   
+    date = format(date,'format',"%m/%d/%y")
+    closest_date = min(date_list, key=lambda t: abs(date - format(t,'format',"%m/%d/%y")))
+
+    
+    formated_closest_date = format(closest_date,'format',"%m/%d/%y")
+    formated_date = datetime.datetime.strptime(str(date),"%Y-%m-%d %H:%M:%S")
+    
+
+    closest_date_first_occurence = date_list.index(closest_date)
+    closest_date_last_occurence = len(date_list) - date_list[::-1].index(closest_date) - 1
+    last_history_date_index = len(date_list) - 1
+    #if start_day bigger thab current day existing history days, print nothing
+    
+    if since or since_to:
+        #print 'since date action'
+        #if asked date bigger than closest day
+        if formated_date > formated_closest_date:
+            #print 'closest date smaller'
+            #if the history contains old dates only -> print nothing
+            if closest_date_last_occurence == last_history_date_index :
+                #print 'there is no future date'
+                
+                
+                #it can be start or end
+                if since_to:
+                    #start
+                    if not to:
+                        start_or_end = None
+                    #end    
+                    else:
+                        start_or_end = closest_date_last_occurence
+                else:
+                    end = None
+                    start = None
+                               
+            #if the history contains future dates but far -> print all from next future date
+            else: 
+                #print 'there is future date !'
+                next_future_date = closest_date_last_occurence + 1
+                
+                
+                
+                if since_to:
+                
+                    if not to:
+                        start_or_end = next_future_date
+                    else:
+                        start_or_end = closest_date_last_occurence
+                else:    
+                    end = default_max
+                    start = next_future_date
                     
-
-
-                    try:
-                        formated_user_start_date = time.strptime(user_min, "%m/%d/%y")
-                    except:                    
-                        custom_print('Error','Invalid values',True)                    
+        #if history contain events recent than provided date         
+        elif formated_date < formated_closest_date:
+            #print 'closest date bigger'      
+            #print 'there is future date !'
             
-
-                    for index,mydate in enumerate(mydates):
-
-                        try:
-                            formated_history_date = time.strptime(mydate, "%m/%d/%y")
-                        except:                    
-                            custom_print('Error','Invalid values',True)
-
-                        if  formated_user_start_date >= formated_history_date and formated_history_date != old_date:
-                            #for min take the first else for max take the last
-                            start = index
-                        if 'user_max' in locals():
-                            print 'true'
-                            
-                            formated_user_end_date = time.strptime(user_max, "%m/%d/%y")
-                            if formated_user_end_date >= formated_history_date:
-                                end = index + 1
-                        else:
-                            end = default_max
-
-                        old_date = formated_history_date
-
-                            
-                elif times:
-
-
-
-                    for index,mytime in enumerate(mytimes):
-
-                        
-                        
-                        if user_min >= mytime and mytime != old_time:
-                            start = index + 1
-                        
-
-                        if 'user_max' in locals():
-                            if user_max >= mytime:    
-                                end = index + 1
-                        else:
-                            end = default_max
-                    
-                        old_time = mytime
-
-        print file_content_listed[0] + '\n' + '\n'.join(histories[start:end])        
-
-
-
+            
+            
+            if since_to:
+            
+                if not to:
+                    start_or_end = closest_date_first_occurence
+                else:
+                
+                    if closest_date_first_occurence - 1 >= 0:
+                        start_or_end = closest_date_first_occurence - 1
+                    else:
+                        start_or_end = None
+            else:    
+                end = default_max
+                start = closest_date_first_occurence
+        
+        #if asked date exist in history(closest strictly equal ==)    
+        else:
+            time_research = 'search'
+         
+            indexes = [i for i,x in enumerate(date_list) if x == closest_date]
+            return indexes , time_research 
+            
+            
+    if since_to:
+        return start_or_end, time_research   
     else:
-        custom_print('Error','History not available',True)
+        return [start , end], time_research
+
+#*********************************************************#
+# Function name :  get_closest_time                       #
+# input : user start time etc...                          #
+# role : get closest time of a given time/time intervalle #               
+#*********************************************************#
+
+    
+def get_closest_time(time,closest_dates_indexes,time_list,date_list,since,since_to,default_max,to):
+
+    state = True
+   
+    
+    #here we have corresponding times of selected days
+    if len(closest_dates_indexes)>1:
+        subset = list(itemgetter(*closest_dates_indexes)(time_list))
+    else:
+        subset = [str(time_list[closest_dates_indexes[0]])]
+        
+    
+    absolute_start = closest_dates_indexes[0]
+
+     
+    user_time = format(time,'format',"%H:%M:%S")
+    closest_time = min(subset, key=lambda t: abs(user_time - format(t,'format',"%H:%M:%S")))
 
 
-#data type checking
 
+    formated_closest_time = format(closest_time,'format',"%H:%M:%S")
+    formated_user_time = datetime.datetime.strptime(str(user_time),"%Y-%m-%d %H:%M:%S")
+    
+   
+
+     
+    relative_closest_time_first_occurence = subset.index(closest_time)
+
+    
+    absolute_closest_time_first_occurence = absolute_start + relative_closest_time_first_occurence
+    
+    if since or since_to:
+    
+        
+        #there is only more recents events
+        if formated_user_time < formated_closest_time :
+            #print 'there is no old events'
+            #then print from this time ti end
+            
+            
+            if since_to:
+                #start
+                if not to:
+            
+                    start_or_end = absolute_closest_time_first_occurence
+                 
+                else:
+                
+                    if absolute_closest_time_first_occurence - 1 >= 0:
+                        start_or_end = absolute_closest_time_first_occurence - 1
+                    else:
+                        start_or_end = None
+                        
+            else:
+                start = absolute_closest_time_first_occurence
+                end = default_max     
+            
+        #the closest is smaller
+        elif formated_user_time > formated_closest_time :   
+            #print 'there is old events'
+            #check if there is next time far but bigger or pick the first of next day
+            #if in the times of the day there is more recent time     
+            if (relative_closest_time_first_occurence + 1) < len(subset):
+                #print 'there is bigger time in your day'
+                
+                
+                if since_to:
+                    if not to:
+                    
+                        start_or_end = absolute_closest_time_first_occurence + 1
+                  
+                    else:
+                        start_or_end = absolute_closest_time_first_occurence          
+                else:
+                    start = absolute_closest_time_first_occurence + 1
+                    end = default_max
+            
+            
+             
+            #user time bigger but no history after this time on this day
+            #so check the next day 
+            else:
+                #if there is no next day 
+                if absolute_start + len(subset) >= len(time_list):
+                    #print 'there is no next day'
+                    
+                    
+                    if since_to:
+                        if not to :
+                            start_or_end = None    
+                        else:
+                    
+                            start_or_end = absolute_closest_time_first_occurence
+                    else:
+                        start = None
+                        end = None
+                    
+                else:
+              
+                    
+                    if since_to:
+                        if not to :
+                            start_or_end =  absolute_start + len(subset)
+                        else:
+                            start_or_end =  absolute_closest_time_first_occurence
+                    else:
+                        start = absolute_start + len(subset)
+                        end = default_max
+
+        #closest time equal user time
+        else:
+        
+            if since_to:
+   
+                start_or_end =  absolute_closest_time_first_occurence
+            else:
+                start = absolute_closest_time_first_occurence
+                end = default_max
+    
+    
+    if since :                
+        return start,end     
+    else :                
+        return start_or_end
+        
+#data type checking and format
+
+            
+def format(date_time,operation,string_format):
+
+ 
+    try:
+        result = datetime.datetime.strptime(date_time,string_format) 
+        if operation == 'check':
+            return True
+        else:
+            return result    
+    except:
+
+        if operation == 'check':
+            return False
+        else:                        
+            custom_print('Error','Invalid values',True)
+             
+        
+        
 def is_int(input):
     try: 
         int(input)
@@ -1054,19 +1247,3 @@ def is_int(input):
 
 
 
-def is_date(input):
-    
-    try:
-        time.strptime(input, '%m/%d/%y')
-        return True
-    except ValueError:
-        return False
-
-def is_time(input):
-
-    try:
-        time.strptime(input, '%H:%M:%S')
-        return True
-    except ValueError:
-        return False
-    
