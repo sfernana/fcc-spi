@@ -1,0 +1,1 @@
+{"executable": "fcc-pythia8-generate", "number_of_runs": "", "log": "", "chosen_batch": "htcondor", "stdout": "", "fcc_input_files": "", "fcc_conf_file": "/afs/cern.ch/exp/fcc/sw/0.7/fcc-physics/0.1/x86_64-slc6-gcc49-opt/share/ee_ZH_Zmumu_Hbb.txt", "stderr": "", "number_of_events": "", "fcc_output_file": "", "batch_original_arguments": "", "outdir": ""}
