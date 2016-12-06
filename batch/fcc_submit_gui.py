@@ -7,21 +7,15 @@
 import os 
 import sys
 
-def installation_error():
-    error_message = """The required packages for the GUI are not available
-               In this case, you need the following packages
-               1) tkinter and PIL
-               To install a package type : pip install name_of_the_package"""
 
-    return error_message
 
 try:
     # for Python2
-    import Tkinter as tk  ## notice capitalized T in Tkinter 
+    import Tkinter as tk  # Tkinter begins with a capitalized T 
 except ImportError:
     # for Python3
     try:
-        import tkinter as tk ## notice lowercase 't' in tkinter here
+        import tkinter as tk # tkinter begins with a lowercased t
     except ImportError:
         raise ImportError(installation_error())
 
@@ -32,9 +26,9 @@ import tkMessageBox
 try:
     from PIL import Image, ImageTk
 except:
-    #the problem is that when we source the bash script init_fcc_stack.sh
+    #when we source the bash script init_fcc_stack.sh
     #it modifies the python path and PIL module can no longer be imported
-    #so try to re-add lost paths to python path    
+    #so try to re-add lost PIL paths to python path    
 
     PIL_MODULE_LOCATION = '/usr/lib64/python2.6/site-packages'
     
@@ -52,58 +46,67 @@ import fcc_batch as batch
 
 
 
-
-
 #constants
 Police = 12
 LARGE_FONT= ("Verdana", Police)
 window_width = 500
-window_height = 500
-BGlabel=False 
-chosen_software=""
-popup_log = None
-popup_output = None
-popup_error = None
-main = None
+window_height = 550 
 
 #********************************* Functions Definition  ************************************#
 
+#********************************************#
+# Function name : installation_error         #
+# input : none                               #
+# role : return error message installation   # 
+# when libraries are missing                 #
+#********************************************#
 
+def installation_error():
+    error_message = """The required packages for the GUI are not available
+               In this case, you need the following packages
+               1) tkinter and PIL
+               To install a package type : pip install name_of_the_package"""
+
+    return error_message
+    
+    
 #***********************************#
 # Function name : launchGUI         #
 # input : none                      #
 # role : launch the GUI which       # 
-# will 'catch' the configuration    #
+# will 'catch' the specification    #
 # for the submission                #
 #***********************************#
 
 
 def launchGUI(my_file_sys):
 
+    #to obtain my_file_sys variable scope from another function
     launchGUI.my_file_sys = my_file_sys
     
     main = Submission()
+    
+    #to obtain main variable scope from another function
+    launchGUI.main = main 
+    
     main.title("FCC SUBMIT")
-    #main.main.iconphoto(True,ImageTk.PhotoImage(file=os.path.join(sys.path[0],"fcc.png")))
-    #main.iconbitmap('@fcc.xbm')
     main.mainloop()
 
 
-#***********************************#
-# Function name : run               #
-# input : class instance and        #
-# the fcc software                  #
-# role : parse gui textwidgets,save #
-# the executable and other options  #    
-# in a configuration dictionnary    #
-# and send it to                    #
-# the final submission "level"      #
-#***********************************#
+#**********************************************#
+# Function name : run                          #
+# input : class instance                       #       
+# role : parse gui textwidgets, save           #
+# the executable and other options             #    
+# in a specification dictionnary               #
+# and send it to                               #
+# the final submission "level" : fcc_batch     #
+#**********************************************#
 
 def run(self):
     
 
-    chosen_batch = launchGUI.my_file_sys.get_batch()
+    chosen_batch = launchGUI.my_file_sys.chosen_batch
 
 
     specification = {}
@@ -117,6 +120,7 @@ def run(self):
     stdout = self.stdout_txt.get()
     stderr = self.stderr_txt.get()
     log = self.log_txt.get()
+    outdir = self.outdir_txt.get()
 
     files = list(self.files_listbox.get(0, tk.END))
     fcc_input_files =  '' if not files else files
@@ -140,10 +144,10 @@ def run(self):
 
     try:
         tempNOR = self.NOR_txt.get()
-        NOR = int(tempNOR) if tempNOR != '' else ''
+        NOR = str(int(tempNOR)) if tempNOR != '' else ''
      
         tempNOE = self.NOE_txt.get()
-        NOE = int(tempNOE) if tempNOE != '' else ''
+        NOE = str(int(tempNOE)) if tempNOE != '' else ''
     
         
 
@@ -157,7 +161,7 @@ def run(self):
         specification['stdout'] = stdout
         specification['stderr'] = stderr
         specification['log'] = log
-
+        specification['outdir'] = outdir
 
     
         #submit configuration
@@ -168,101 +172,83 @@ def run(self):
         display_error_message('Error',message)
 
 
-#*******************************************#
-# Function name : show                      #
-# input : folder results                    #
-# role : print stdout,stderr,log in a popup #
-#*******************************************#
+#*************************************#
+# Function name : initialize_popup    #
+# input : folder type                 #
+# role : look for stdout,stderr,log   #
+# and initializes corresponding popup #
+#*************************************#
 
-def show(self,who):
+def initialize_popup(self,who):
 
 
-    result_folder, batch_folder, output_folder, error_folder , log_folder = launchGUI.my_file_sys.get_workspace()
-
-    job_id = launchGUI.my_file_sys.get_last_job_id()    
+    result_folder, batch_folder, stdout_folder, error_folder , log_folder, outdir_folder = launchGUI.my_file_sys.get_workspace()
+  
 
     if who == 'log':
 
-
-        file_content = launchGUI.my_file_sys.read_from_file(output_folder + '/job.' + job_id + '.log')
-
-        if False != file_content :
-
-            what = file_content
-
-
-            actual_content = self.log_scrolltext.get(1.0, tk.END)
-
-            if actual_content != '' : self.log_scrolltext.delete(1.0, tk.END)
-
-            self.log_scrolltext.insert(tk.END,what)
-        
-        
-
-            #show it
-            #self.popup_log.update()
-            self.popup_log.deiconify()
-            #put on the front
-            self.popup_log.lift()
-            #put focus on it
-            self.popup_log.focus_force()
-
+        show_popup(log_folder,'.log',self.log_scrolltext,self.popup_log)
 
     elif who == 'output':
-
-        file_content = launchGUI.my_file_sys.read_from_file(output_folder + '/job.' + job_id + '.out')
-
-        if False != file_content :
-
-            what = file_content
-
-            
-
-            actual_content = self.output_scrolltext.get(1.0, tk.END)
-
-            if actual_content != '' : self.output_scrolltext.delete(1.0, tk.END)
-
-            self.output_scrolltext.insert(tk.END,what)
-        
-        
-
-            #show it
-            self.popup_log.update()
-            self.popup_output.deiconify()
-            #put on the front
-            self.popup_output.lift()
-            #put focus on it
-            self.popup_output.focus_force()
-
+        show_popup(stdout_folder,'.out',self.output_scrolltext,self.popup_output)
+  
     elif who == 'error':
         
-        file_content = launchGUI.my_file_sys.read_from_file(output_folder + '/job.' + job_id + '.err')
+        show_popup(error_folder,'.err',self.error_scrolltext,self.popup_error)
 
-        if False != file_content :
-
-            what = file_content
-
+    elif who == 'history':
         
-
-            actual_content = self.error_scrolltext.get(1.0, tk.END)
-
-            if actual_content != '' : self.error_scrolltext.delete(1.0, tk.END)
-
-            self.error_scrolltext.insert(tk.END,what)
+        since = self.from_txt.get().split(' ') if '' != self.from_txt.get() else ''
+        to = self.to_txt.get().split(' ') if '' != self.to_txt.get() else ''
+      
+        if since != '':
+            since += to
+        else:
+            since = to
+               
+        show_popup(None,since,self.history_scrolltext, self.popup_history)
         
+#****************************************#
+# Function name : show_popup             #
+# input : popup type                     #
+# role : display stdout,stderr,log popup #
+#****************************************#
 
-            #show it
-            self.popup_log.update()
-            self.popup_error.deiconify()
-            #put on the front
-            self.popup_error.lift()
-            #put focus on it
-            self.popup_error.focus_force()
+def show_popup(folder,extension,scrolltext,popup):
 
+    #display history, the function already read the file in the default folder
+    if None == folder:
+        #extension becomes : args from to
+        file_content = launchGUI.my_file_sys.display_history(extension,True)
+    else:
+    #try to look log,output,error in respective folders
+        job_id = launchGUI.my_file_sys.current_job_id
 
+        file_content = launchGUI.my_file_sys.read_from_file(folder + '/job.' + job_id + extension)
     
+    if False is not file_content :
+
+        what = file_content
+
+        actual_content = scrolltext.get(1.0, tk.END)
+
+        #delete content of last submission if there exist
+        if actual_content != '' : scrolltext.delete(1.0, tk.END)
+
+        #insert content of file in text widget
+        scrolltext.insert(tk.END,what)
     
-    #main.wait_window(popup)
+
+        #show it
+        popup.update()
+        popup.deiconify()
+        #put on the front
+        popup.lift()
+        #put focus on it
+        popup.focus_force()
+
+
+
 
 
 #*************************************************#
@@ -325,7 +311,7 @@ def display_about():
     popup.minsize(450,600)
     popup.maxsize(450,600)
 
-    program_label = tk.Label(popup, text='FCC SUBMIT v1.0 by FCC',font=LARGE_FONT)
+    program_label = tk.Label(popup, text='FCC SUBMIT v1.0 by FCC group',font=LARGE_FONT)
     program_label.place(x=80,y=10)
 
     image_filename = 'fcc.png'    
@@ -343,7 +329,7 @@ SOFTWARE INFORMATIONS
                                
                    Property of CERN               
                                
-EP-SFT Group (Experimental physics - Software)             
+EP-SFT Group (Experimental Physics - SoFTware)             
                                
 Simplified Submission Script for using Batchs systems       
 at CERN.                           
@@ -351,13 +337,11 @@ at CERN.
 FCC group can use it to run jobs on LXBatch.       
                                
 This script provides a simple interface for the submission 
-of jobs on HtCondor or LSF Batch and it offers more        
-fonctionnalities wich are :                        
+of jobs on HtCondor or LSF Batch :                        
                                
--> An usual way to submit a job :                   
-  ie. fcc-submit --gui               
+-> A simple way to submit a job :                   
+  ie. python fcc_submit.py --gui               
                                
--> An abstract management of job spliting           
                                
 For more information, please contact us                   
 at fcc-experiments-sw-devATSPAMNOTcern.ch            
@@ -421,11 +405,11 @@ def import_to_gui(self):
     if filename:
 
         
-        specification , status = launchGUI.my_file_sys.import_specification(filename)
+        specification = launchGUI.my_file_sys.import_specification(filename)
 
-        if False != status :
+        if False is not specification :
     
-            [chosen_batch, fcc_executable, fcc_conf_file ,fcc_output_file, NOR , NOE , fcc_input_files ,batch_original_arguments, stdout, stderr, log]  =  specification
+            [chosen_batch, fcc_executable, fcc_conf_file ,fcc_output_file, NOR , NOE , fcc_input_files ,batch_original_arguments, stdout, stderr, log, outdir]  =  specification
             
             
     
@@ -438,6 +422,7 @@ def import_to_gui(self):
             self.stdout_txt.set(stdout)    
             self.stderr_txt.set(stderr)
             self.log_txt.set(log)
+            self.outdir_txt.set(outdir)
 
 
             set_gui_batch(self,chosen_batch)
@@ -456,7 +441,7 @@ def import_to_gui(self):
 
 def save_from_gui(self):
 
-    chosen_batch = launchGUI.my_file_sys.get_batch()
+    chosen_batch = launchGUI.my_file_sys.chosen_batch
 
     file = asksaveasfile(mode='w', defaultextension=".spec")
 
@@ -472,12 +457,13 @@ def save_from_gui(self):
         stdout = self.stdout_txt.get()
         stderr = self.stderr_txt.get()
         log = self.log_txt.get()
+        outdir = self.outdir_txt.get()
 
         files = list(self.files_listbox.get(0, tk.END))
         fcc_input_files =  '' if not files else ' '.join(files)
         
 
-        specification_values = [chosen_batch, fcc_executable, fcc_conf_file, fcc_output_file, NOR, NOE, fcc_input_files,batch_original_arguments,stdout,stderr,log]
+        specification_values = [chosen_batch, fcc_executable, fcc_conf_file, fcc_output_file, NOR, NOE, fcc_input_files,batch_original_arguments,stdout,stderr,log, outdir]
                 
         launchGUI.my_file_sys.save_specification(specification_values,file.name)
 
@@ -513,9 +499,8 @@ def menubar(self, root):
 #***********************************#
 
 def set_gui_batch(self,batch):
-    
         
-    print batch
+    #print batch
     
     if batch == 'lsf':
         self.LSF_button.configure(bg = "green")    
@@ -526,7 +511,7 @@ def set_gui_batch(self,batch):
         self.HTCondor_button.configure(bg = "green")
         self.log_view_button.configure(state=tk.NORMAL)
     
-    launchGUI.my_file_sys.set_batch(batch)
+    launchGUI.my_file_sys.chosen_batch = batch
 
 
 
@@ -585,8 +570,6 @@ class Submission(tk.Tk):
     def show_frame(self, cont):
 
         self.frame.tkraise()
-    
-    
         menudef = menubar(self,self.frame)
         self.configure(menu=menudef)
 
@@ -668,21 +651,31 @@ class JOB(tk.Frame):
         search_log_button.place(x=430,y=170,width=60,height=20)
 
 
+        outdir_label = tk.Label(self, text="Output directory")
+        outdir_label.place(x=10,y=190,width=200,height=20)
 
+        self.outdir_txt = tk.StringVar()
+        outdir_entry = tk.Entry(self,textvariable=self.outdir_txt)
+        outdir_entry.place(x=230,y=190,width=200,height=20)
+
+        search_outdir_button = tk.Button(self, text="...",command=lambda: open_dialog_box('dir','set_one',self.outdir_txt))
+        search_outdir_button.place(x=430,y=190,width=60,height=20)
+        
+        
         NOR_label = tk.Label(self, text="Number of Runs")
-        NOR_label.place(x=10,y=190,width=200,height=20)
+        NOR_label.place(x=10,y=210,width=200,height=20)
 
 
         self.NOR_txt = tk.StringVar()
         NOR_entry = tk.Entry(self,textvariable=self.NOR_txt)
-        NOR_entry.place(x=230,y=190,width=200,height=20)
+        NOR_entry.place(x=230,y=210,width=200,height=20)
 
         NOE_label = tk.Label(self, text="Number of Events")
-        NOE_label.place(x=10,y=210,width=200,height=20)
+        NOE_label.place(x=10,y=230,width=200,height=20)
 
         self.NOE_txt = tk.StringVar()
         NOE_entry = tk.Entry(self,textvariable=self.NOE_txt)
-        NOE_entry.place(x=230,y=210,width=200,height=20)
+        NOE_entry.place(x=230,y=230,width=200,height=20)
 
 
         files_label = tk.Label(self, text="Input Files (Default AFS)")
@@ -700,34 +693,34 @@ class JOB(tk.Frame):
 
 
         eos_file_label = tk.Label(self, text="Input File (other file system)")
-        eos_file_label.place(x=10,y=300,width=200,height=20)
+        eos_file_label.place(x=10,y=310,width=200,height=20)
 
         self.eos_file_txt = tk.StringVar()
         eos_file_entry = tk.Entry(self,textvariable=self.eos_file_txt)
-        eos_file_entry.place(x=230,y=300,width=200,height=20)
+        eos_file_entry.place(x=230,y=310,width=200,height=20)
 
 
         add_eos_file_button = tk.Button(self, text="add",command=lambda: self.add_to_list_box_items(self.files_listbox,self.eos_file_txt.get()))
-        add_eos_file_button.place(x=430,y=300,width=60,height=20)
+        add_eos_file_button.place(x=430,y=310,width=60,height=20)
 
 
         batch_args_label = tk.Label(self, text="Batch additionnal arguments")
-        batch_args_label.place(x=10,y=320,width=200,height=20)
+        batch_args_label.place(x=10,y=340,width=200,height=20)
 
         self.batch_args_txt = tk.StringVar()
         batch_args_entry = tk.Entry(self,textvariable=self.batch_args_txt)
-        batch_args_entry.place(x=230,y=320,width=200,height=20)
+        batch_args_entry.place(x=230,y=340,width=200,height=20)
 
 
         batch_label = tk.Label(self, text="Batch system choice")
-        batch_label.place(x=10,y=350,width=200,height=20)
+        batch_label.place(x=10,y=360,width=200,height=20)
 
 
         self.LSF_button = tk.Button(self, text ="LSF", relief=tk.RIDGE,command=lambda: set_gui_batch(self,'lsf'))
-        self.LSF_button.place(x=230,y=350,width=70,height=40)
+        self.LSF_button.place(x=230,y=370,width=70,height=40)
 
         self.HTCondor_button = tk.Button(self, text ="HTCondor", relief=tk.RIDGE,command=lambda: set_gui_batch(self,'htcondor'))
-        self.HTCondor_button.place(x=320,y=350,width=70,height=40)
+        self.HTCondor_button.place(x=320,y=370,width=70,height=40)
 
 
         self.popup_log = tk.Toplevel()
@@ -740,11 +733,10 @@ class JOB(tk.Frame):
 
         self.log_scrolltext = ScrolledText(self.popup_log)
         self.log_scrolltext.pack(fill=tk.BOTH,expand=True)
-        self.log_scrolltext.insert(tk.INSERT,'LOG')
 
 
-        self.log_view_button = tk.Button(self, text="Log",state=tk.DISABLED,command=lambda: show(self,'log'))
-        self.log_view_button.place(x=300,y=400,width=60,height=40)
+        self.log_view_button = tk.Button(self, text="Log",state=tk.DISABLED,command=lambda: initialize_popup(self,'log'))
+        self.log_view_button.place(x=300,y=420,width=60,height=40)
 
 
         self.popup_output = tk.Toplevel()
@@ -757,8 +749,8 @@ class JOB(tk.Frame):
         self.output_scrolltext = ScrolledText(self.popup_output)
         self.output_scrolltext.pack(fill=tk.BOTH,expand=True)
 
-        stdout_view_button = tk.Button(self, text="Output",command=lambda: show(self,'output'))
-        stdout_view_button.place(x=360,y=400,width=60,height=40)
+        stdout_view_button = tk.Button(self, text="Output",command=lambda: initialize_popup(self,'output'))
+        stdout_view_button.place(x=360,y=420,width=60,height=40)
 
         self.popup_error = tk.Toplevel()
         self.popup_error.title('ERROR')
@@ -771,21 +763,67 @@ class JOB(tk.Frame):
         self.error_scrolltext.pack(fill=tk.BOTH,expand=True)
 
 
-        stderr_view_button = tk.Button(self, text="Error",command=lambda: show(self,'error'))
-        stderr_view_button.place(x=420,y=400,width=60,height=40)    
+        stderr_view_button = tk.Button(self, text="Error",command=lambda: initialize_popup(self,'error'))
+        stderr_view_button.place(x=420,y=420,width=60,height=40)    
 
         run_button = tk.Button(self, text="RUN",command=lambda: run(self))
-        run_button.place(x=230,y=400,width=60,height=40)
+        run_button.place(x=230,y=420,width=60,height=40)
+    
+        self.is_history = tk.IntVar()
 
+        display_history_cb = tk.Checkbutton(self, text = "history", onvalue = 1, offvalue = 0, variable = self.is_history, height=5,width = 20,command=lambda: self.change_history_state())
+        display_history_cb.place(x=10,y=380)
+        
+        self.from_label = tk.Label(self, text="from")
+
+        self.from_txt = tk.StringVar()
+        self.from_entry = tk.Entry(self,textvariable=self.from_txt)
+
+        self.to_label = tk.Label(self, text="to")
+
+        self.to_txt = tk.StringVar()
+        self.to_entry = tk.Entry(self,textvariable=self.to_txt)
+
+
+        self.popup_history = tk.Toplevel()
+        self.popup_history.title('HISTORY')
+        self.popup_history.protocol("WM_DELETE_WINDOW", self.popup_history.withdraw)
+        self.popup_history.withdraw()
+
+        self.popup_history.minsize(400,400)
+
+        self.history_scrolltext = ScrolledText(self.popup_history)
+        self.history_scrolltext.pack(fill=tk.BOTH,expand=True)
+
+
+        self.history_button = tk.Button(self, text="display",command=lambda: initialize_popup(self,'history'))
 
         set_gui_batch(self,'htcondor')
 
+    def change_history_state(self):
+    
+        if not self.is_history.get():
+
+            self.from_label.place_forget()
+            self.from_entry.place_forget()
+            self.to_label.place_forget()
+            self.to_entry.place_forget()
+            self.history_button.place_forget()
+        else:       
+
+            self.from_label.place(x=10,y=480,width=70,height=20)
+            self.from_entry.place(x=80,y=480,width=120,height=20)
+            self.to_label.place(x=200,y=480,width=70,height=20)
+            self.to_entry.place(x=270,y=480,width=120,height=20)
+            self.history_button.place(x=400,y=480,width=60,height=20)
 
     #delete file on listbox
     def delete_list_box_items(self,listbox): 
-         #get selected line index       
-        index = listbox.curselection()[0]
-        listbox.delete(index)
+        #get selected line index
+        selection = listbox.curselection()
+        if selection:        
+            index = selection[0]
+            listbox.delete(index)
 
     #add file on listbox
     def add_to_list_box_items(self,listbox,item): 
@@ -794,8 +832,21 @@ class JOB(tk.Frame):
 
 
 
-#if you to call the script independantly of the CLI
+#if you want to call the script independantly of the CLI
 #**************************** MAIN START ************************************#
+
+#user libraries
+#import fcc_file_system as filesys
+#my_file_sys = filesys.FileSystem()
+
+#we set the current interface type    
+#my_file_sys.set_interface('gui')    
+
+#we check fcc environnement 
+#my_file_sys.init_fcc_stack()
+    
+#we launch the gui
+#fcc_submit_gui.launchGUI(my_file_sys)
 
 #launchGUI()    
 

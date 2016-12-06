@@ -10,17 +10,22 @@ import sys
 import stat
 import getpass
 import shutil
-import time
 import datetime 
-from dateutil.parser import parse
+import json        
 from operator import itemgetter
                 
-#Xroot python api used for eos
+#Xrootd python api used for eos
 from XRootD import client
 from XRootD.client.flags import DirListFlags, OpenFlags, MkDirFlags, QueryCode
 
 
 
+#**************************************#
+# Class name : FileSystem              #
+# input : none                         #
+# role : global class mainly used for  #
+# 'file/filesystem' operations         #
+#**************************************#
 
 class FileSystem():
 
@@ -30,148 +35,186 @@ class FileSystem():
     
         #constants
 
-        #default values if not existing
-        self.HARD_CODED_SOFTWARE_PATH_AFS = "/afs/cern.ch/exp/fcc/sw/0.7"
-        self.sourcingFCCStack = 'source ' + self.HARD_CODED_SOFTWARE_PATH_AFS + '/init_fcc_stack.sh'
-        self.sourcing_message = "\nPlease ensure that you type the following command every time you want to use FCC softwares : \n" + self.sourcingFCCStack + '\n'
+        #default fccsw environnement printed to the user as 'help' if environnement is not set
+        HARD_CODED_SOFTWARE_PATH_AFS = "/afs/cern.ch/exp/fcc/sw/0.7"
+        self.sourcingFCCStack = 'source ' + HARD_CODED_SOFTWARE_PATH_AFS + '/init_fcc_stack.sh'
+        self.fccsw_sourcing_message = "\nPlease ensure that you set up correctly your environnement in order to use FCC softwares ie.: \n" + self.sourcingFCCStack + '\n'
 
 
+        #default HEPPY environnement
 
-        self.output_folder = ''
-        self.error_folder = ''
+        #default heppy environnement printed to the user as 'help' if environnement is not set
+        username = getpass.getuser()
+        initial = username[0]
+
+        self.HARD_CODED_HEPPY_PATH_AFS="/afs/cern.ch/user/"+initial+"/"+username+"/heppy" 
+        self.sourcingHEPPY = 'source ' + self.HARD_CODED_HEPPY_PATH_AFS + '/init.sh'
+        self.heppy_sourcing_message = "\nPlease ensure that you set up correctly your environnement in order to use HEPPY software ie.: \n" + self.sourcingHEPPY + '\n'
+        self.setHEPPY = ''
+
+        #workspace
+        self.stdout_folder = ''
+        self.stderr_folder = ''
         self.log_folder = ''
         self.batch_folder = ''
+        self.outdir_folder = ''
+        
         self.current_job_id = ''
 
-        #batch ouptut directories
+        #pwd
         self.cwd = os.getcwd()
 
         #default script working directory
-        self.result_folder = self.cwd + '/FCC_SUBMIT/'
+        self.script_folder = self.cwd + '/FCC_SUBMIT/'
 
         #default log of the script
-        self.log_file_name = self.result_folder + 'fcc_submit_log.txt'
+        self.log_file_name = self.script_folder + 'fcc_submit_log.json'
+        
+        #default batch files
+        self.submitFileName = self.script_folder + 'user_submit_file.sub'
+        self.jobFileName = self.script_folder + 'user_temp_job.sh'
 
+        #eos location
+        self.EOS_MGM_URL= 'root://eospublic.cern.ch'
+        #eos environnement
+        self.setEOS = 'export EOS_MGM_URL=' + self.EOS_MGM_URL
+        self.myclient = client.FileSystem(self.EOS_MGM_URL + ':1094')
 
     #************************************* Functions Definition ***********************************#
 
 
 
-    #**************************************#
-    # Function name : init_fcc_stack       #
-    # input : none                         #
-    # role : look for the fcc environnement#
-    # before running the script            #
-    #**************************************#
+    #***************************************#
+    # Function name : init_fcc_stack        #
+    # input : none                          #
+    # role : look for the fcc environnement #
+    # before running the script             #
+    #***************************************#
 
     def init_fcc_stack(self):
 
-
+        #FCCSW environement
         try:
-            self.SOFTWARE_PATH_AFS=os.environ["FCCSWPATH"]
-            self.sourcingFCCStack = 'source ' + self.SOFTWARE_PATH_AFS + '/init_fcc_stack.sh'
+            SOFTWARE_PATH_AFS=os.environ["FCCSWPATH"]
+            self.sourcingFCCStack = 'source ' + SOFTWARE_PATH_AFS + '/init_fcc_stack.sh'
 
         except:
-            print self.sourcing_message
+            #print default path of source script as 'help'
+            print self.fccsw_sourcing_message
             quit()
             
+    #*****************************************#
+    # Function name : init_heppy              #
+    # input : none                            #
+    # role : look for the heppy environnement #
+    # before running the script               #
+    #*****************************************#
 
 
-        username = getpass.getuser()
-        initial = username[0]
+    def init_heppy(self,executable):
 
-        self.HARD_CODED_HEPPY_PATH_AFS="/afs/cern.ch/user/"+initial+"/"+username+"/heppy" 
-
-
-        self.sourcingHEPPY = 'source ' + self.HARD_CODED_HEPPY_PATH_AFS + '/init.sh'
-
-
-
-
-    #getters and setters
-
-
-    def set_batch(self,batch):
-        self.chosen_batch = batch
-
-    def get_batch(self):
-        return self.chosen_batch
-
-
-    def set_current_job_id(self,id):
-        self.current_job_id = id
-
-    def set_interface(self,interface_type):
-        self.interface = interface_type
-
-    def get_interface(self):
-        return self.interface
-        
-        
-    def get_last_job_id(self):
-        return self.current_job_id
-
-
-    def get_workspace(self):
-        return self.result_folder, self.batch_folder, self.output_folder, self.error_folder, self.log_folder
-        
-
-    #**************************************#
-    # Function name : set_workspace        #
-    # input : folder names                 #
-    # role : create default folders or     #
-    # ones provided by user in arguments   #
-    #**************************************#
-
-    def set_workspace(self,stdout,stderr,log):
-        
-         
-
-        self.batch_folder = self.result_folder + self.chosen_batch.upper()
-
-        self.output_folder =  stdout if stdout !="" else self.batch_folder + '/output'
-
-        self.error_folder = stderr if stderr !="" else self.batch_folder + '/error'
-
-        self.log_folder = log if log !="" else self.batch_folder + '/log'
-
-
-
-        
-        #because condor output error like : 'file not writtable'
-        
-        #stuff may be not necessary
+        #HEPPY environement
+        try:
+            HEPPY_PATH_AFS=os.environ["HEPPY"]
+            self.setHEPPY = 'export HEPPY=' + HEPPY_PATH_AFS
+            return True
+        except:
+            return self.custom_print('Error',self.heppy_sourcing_message,True)
+            #for the moment do no install, print error message which says : 'set heppy environnement'
+            #return self.install_software(executable)
             
-        #default permission 
+
+       
+       
+       
+    #*****************************************#
+    # Function name : mkdir                   #
+    # input : folder                          #
+    # role : used to create default folder of #
+    # the script if they are not existing     #
+    #*****************************************#
+    
+        
+    def mkdir(self,folder_name):
+    
+        #because sometimes condor output error like : 'file not writtable'
+        
+        #umask stuff may not be necessary
+            
+        #default permission for folder creation
         old_mask = os.umask(0)
         #a second call to change the default permissions (0 similar to chmod 777)
         #like that condor,etc... can write on files ??
         os.umask(0)
-
-
+        
         try:
+            
+            #if the folder exist do not overwrite it
+            #so check if it exist
 
-            if not os.path.isdir(self.output_folder):
-                os.makedirs(self.output_folder)
-
-
-            if not os.path.isdir(self.error_folder):    
-                os.makedirs(self.error_folder)
-
-            #no log given by lsf (bhist does not work)
-            if not os.path.isdir(self.log_folder) and self.chosen_batch == "htcondor":    
-                os.makedirs(self.log_folder)
-
+            if not os.path.isdir(folder_name):
+                os.makedirs(folder_name)
         except OSError, e:
-            raise
+            raise    
 
 
+    #********************************************#
+    # Function name : set_workspace              #
+    # input : folder names                       #
+    # role : create default folders of           #
+    # the script and not user folders            #
+    # user folders are only checked and if they  #
+    # do not exist, script prints error message  #
+    #********************************************#
+
+    def set_workspace(self,stdout,stderr,log,outdir_folder):
+        
+         
+        #script default subfolder
+        self.batch_folder = self.script_folder + self.chosen_batch.upper()
+        self.mkdir(self.batch_folder)
+
+        #create only default subfolders if user did not specified output folders
+        if "" == stdout:
+            self.stdout_folder = self.batch_folder + '/output'
+            self.mkdir(self.stdout_folder)
+        else:
+            self.stdout_folder = stdout
+            
+        if "" == stderr:
+            self.stderr_folder = self.batch_folder + '/error'
+            self.mkdir(self.stderr_folder)
+        else:
+            self.stderr_folder = stderr
+            
+        if "" == log:
+            self.log_folder = self.batch_folder + '/log'
+            self.mkdir(self.log_folder)
+        else:
+            self.log_folder = log
+            
+        if "" == outdir_folder:
+            self.outdir_folder = self.batch_folder + '/results'
+            self.mkdir(self.outdir_folder)
+        else:
+            self.outdir_folder = outdir_folder
+        
+
+    #*****************************************#
+    # Function name : get_workspace           #
+    # input : folder names                    #
+    # role : return user/default folders      #
+    #*****************************************#
+        
+
+    def get_workspace(self):  
+     return self.script_folder, self.batch_folder, self.stdout_folder, self.stderr_folder, self.log_folder, self.outdir_folder
 
     #*************************************************#
     # Function name : XRootDStatus2Dictionnary        #
     # input : xroot status                            #
     # role : parse status object generated by         #
-    # xroot                                           #
+    # xrootd                                          #
     #*************************************************#
 
 
@@ -197,116 +240,133 @@ class FileSystem():
             status_dict = {}
 
             #print status_list
-            
-            for infos in status_list:
-                info = infos.split(':')
-                status_dict[info[0]] = info[1]
-     
-            #to test
-            #status_dict = dict(  (info.split(':')) for info in status_list if '' != info )
-
-
+   
+            #== 2 , ensure that split result to a (key,value) format for the dictionnary
+            status_dict = dict(  (info.split(': ')) for info in status_list if ':' in info and len(info.split(': '))==2)
 
             return status_dict    
         except:
-            self.custom_print('Error',"Path error, please enter a valid path",True) 
+            return self.custom_print('Error',"Path error, please enter a valid path",True) 
             
 
 
 
     #*************************************************#
     # Function name : find_eos_file                   #
-    # input : filename                                #
+    # input : file_name                               #
     # role : check if file exists on eos              #
     # before sending the job to the worker            #
     #*************************************************#
 
 
-    def find_eos_file(self,filename):
+    def find_eos_file(self,file_name):
         #then the file is in eos
-        EOS_MGM_URL= 'root://eospublic.cern.ch/'
 
-        eos_file_full_path = EOS_MGM_URL + filename
+
+        eos_file_full_path = self.EOS_MGM_URL + '/' + file_name
 
         with client.File() as eosFile:
             file_status = eosFile.open(eos_file_full_path,OpenFlags.UPDATE)
 
 
         #problem with file created directly on eos
-        #no problem with uploded files with (xrdcp)
+        #no problem with uploded files with xrdcp cmd
 
         #print eos_file_full_path
         #print file_status
         status = self.XRootDStatus2Dictionnary(file_status)
 
-        if status[' ok'] == ' False':
-
-            return False
+        if 'False' == status[' ok'] or False == status:
+            return file_name,False
         else:
-            return eos_file_full_path
+            return eos_file_full_path,True
+
+    #*************************************************#
+    # Function name : find_eos_folder                 #
+    # input : folder_name                             #
+    # role : check if folder exists on eos            #
+    # before sending the job to the worker            #
+    #*************************************************#
+
+
+    def find_eos_folder(self,folder_name):
+        #then the file is in eos
+        
+        eos_folder_full_path = self.EOS_MGM_URL + '/' + folder_name
+
+        status, listing = self.myclient.dirlist(folder_name, DirListFlags.STAT)
+   
+        if None == listing:
+            return folder_name,False 
+        else:
+            return  eos_folder_full_path,True       
+   
+    
 
 
     #*************************************************#
-    # Function name : find_file                       #
-    # input : filename                                #
-    # role : check if file exists on afs              #
+    # Function name : find_path                       #
+    # input : file_name                               #
+    # role : check if file/folder exists on afs       #
     # before checking on eos                          #
     #*************************************************#
 
-    def find_file(self,filename):
+    def find_path(self,path,file_or_dir='file'):
         
         
 
         #we suppose that the user enter absolute or relative afs path
         #or only absolute eos path
 
-        if not filename.startswith('/eos/'):
-        #afs path are absolute are relative
+        if not path.startswith('/eos/'):
+        #afs path are absolute or relative
         #because software are stored in this filesystem
-        #and users generally submit their job from afs
+        #and users generally submit their job from lxplus
 
-            #print "the file is in afs"
-
-            if os.path.isfile(filename):
-                return os.path.abspath(filename)
+            
+            #absolute path provided
+            #os.isabs not cross platform
+            #i used startwith...
+            if path.startswith('/afs/') and os.path.exists(path):
+                return os.path.abspath(path), True
+            #if relative (does not start with /afs/)
+            #add cwd    
+            elif os.path.exists(os.path.abspath(path)):            
+                return os.path.abspath(path), True
+            #maybe local user machine, print upload error message    
             else:
-                return False
+                return path,False
 
         #absolute path
-        elif filename.startswith('/eos/'):
+        elif path.startswith('/eos/'):
             #print "the file is in eos"        
             
             #eos path are absolute
-            return self.find_eos_file(filename)
             
-        else:
-            return False
+            if 'file' == file_or_dir:
+                return self.find_eos_file(path)
+            else:
+                return self.find_eos_folder(path) 
+            
+        else:#other file system
+            return path,False
 
 
     #*******************************************************#
     # Function name : import_specification                  #
-    # input : filename                                      #
-    # role : import the specified file                      #
+    # input : file_name                                     #
+    # role : import specification from a file               #
     # a specification file store arguments of the command   #
     #*******************************************************#
 
 
-    def import_specification(self,filename):
+    def import_specification(self,file_name):
 
 
-         
+            imported_specification = self.load_json(file_name)
 
-            file_content = self.read_from_file(filename)
-
-            if False != file_content :
-
-                try:
-                    content = file_content.split('\n')
-                    imported_specification = dict(  (info.split('=')) for info in content if '' != info )    
-
-                except:
-                    return [], self.custom_print('Error',"Invalid specification file !",True)
-
+            if False is not imported_specification :
+    
                 #print imported_specification
 
                 chosen_batch = imported_specification['chosen_batch'] if 'chosen_batch' in imported_specification else ''
@@ -323,78 +383,173 @@ class FileSystem():
                 stdout = imported_specification['stdout'] if 'stdout' in imported_specification else ''
                 stderr = imported_specification['stderr'] if 'stderr' in imported_specification else ''
                 log = imported_specification['log'] if 'log' in imported_specification else ''
+                outdir = imported_specification['outdir'] if 'outdir' in imported_specification else ''
+                
 
-                return [chosen_batch, fcc_executable, fcc_conf_file ,fcc_output_file, NOR , NOE , fcc_input_files ,batch_original_arguments, stdout, stderr, log] , True
+                return [chosen_batch, fcc_executable, fcc_conf_file ,fcc_output_file, NOR , NOE , fcc_input_files ,batch_original_arguments, stdout, stderr, log, outdir]
 
             else:
-                return [] , False
+                return self.custom_print('Error',"Invalid specification file !",True)
 
 
     #*******************************************************#
     # Function name : save_specification                    #
-    # input : filename                                      #
+    # input : file_name                                     #
     # role : save spec in the specified file                #
     # a specification file store arguments of the command   #
     #*******************************************************#
 
-    def save_specification(self,specification_values,filename):
+    def save_specification(self,specification_values,file_name):
 
-        specification_keys = ['chosen_batch', 'executable', 'fcc_conf_file', 'fcc_output_file', 'number_of_runs', 'number_of_events', 'fcc_input_files', 'batch_original_arguments', 'stdout', 'stderr', 'log']
+        specification_keys = ['chosen_batch', 'executable', 'fcc_conf_file', 'fcc_output_file', 'number_of_runs', 'number_of_events', 'fcc_input_files', 'batch_original_arguments', 'stdout', 'stderr', 'log','outdir']
 
-        specification_list = []
+        specification_dict = {}
 
         for key,value in zip(specification_keys,specification_values):
-            specification_list+= [key + '=' + value]
+            specification_dict[key] = value
 
-        specification_text = '\n'.join(specification_list) + '\n'
+        if False is self.save_json(specification_dict,file_name):
+            self.custom_print('Error','Error in saving specification',False)
 
-        self.write2file('w',filename,specification_text)
         
 
-    #***********************************#
-    # Function name : write2file        #
-    # input : filename and its content  #
-    # role : write the content in a file#
-    #***********************************#
+    #************************************#
+    # Function name : write2file         #
+    # input : file_name and its content  #
+    # role : write the content in a file #
+    #************************************#
 
-    def write2file(self,operation,filename,filetext):
+    def write2file(self,operation,file_name,filetext):
 
         try:
 
             #create file with w permission
-            with open(filename,operation) as text_file:
+            with open(file_name,operation) as text_file:
                 text_file.write(filetext)
         except:
-             self.custom_print('Error','Error in writting file',False)    
+             self.custom_print('Error','Error in writting file',True)    
         
         
     #********************************************#
     # Function name : read_from_file             #
-    # input : filename                           #
+    # input : file_name                          #
     # role : read a file and return its content  #
     #********************************************#
 
-        
-    def read_from_file(self,filename):
+    def read_from_file(self,file_name):
 
         try:
-            #create file with w permission
-            with open(filename) as f:
+            
+            with open(file_name, 'r') as f:
                 content = f.read()
             return content
         except:
             return False
 
+    #*************************************************#
+    # Function name : load_json                       #
+    # input : file_name                               #
+    # role : load json object and return its content  #
+    #*************************************************#
+    
+    def load_json(self,file_name):
 
-    #********************************************#
-    # Function name : custom_print               #
-    # input : message and options                #
-    # role : print message to gui or shell       #
-    # if shell, quit in case of error            #
-    # but in gui do not quit,                    #
-    # we can 'replay' action, hence the replay   #
-    # variable                                   #
-    #********************************************#
+        try:
+         
+            with open(file_name, 'r') as f:
+                data = json.load(f)
+            return data    
+        except:
+            return False
+            
+    #*************************************************#
+    # Function name : save_json                       #
+    # input : file_name                               #
+    # role : save data to a json object               #
+    #*************************************************#
+                    
+    def save_json(self,data,file_name):
+        try:
+            with open(file_name, 'w') as f:
+                json.dump(data, f)
+        except:
+            return False
+
+    #**********************************************************#
+    # Function name : log                                      #
+    # input : submission                                       #
+    # role : log submission (specification,time...) to a file  #
+    #**********************************************************#
+    
+    def log(self,submission):    
+    
+        
+        old_log = self.load_json(self.log_file_name)
+        job_id = submission['job_id']
+ 
+        #if log exists
+        #append new log to old log                  
+        if False is not old_log:
+           old_log[job_id] = {}
+        else:
+        #create a new log
+            old_log = {}
+            old_log[job_id] = {}
+        
+        for key, value in submission.items():
+            old_log[job_id][key] = value
+        
+        #print old_log        
+        return self.save_json(old_log,self.log_file_name)    
+
+    #**********************************************#
+    # Function name : load_history                 #
+    # input : arguments                            #
+    # role : read all logs and save it into a list #
+    # for the display                              #
+    #**********************************************#
+    
+    def load_history(self,details):    
+    
+        histories = self.load_json(self.log_file_name)
+        
+        if histories is False:
+            return False
+
+        listed_histories = []
+        
+        for k,v in histories.items():
+            listed_histories += [v]
+
+        #sort history by time
+        #to facilitate the 'by intervalle' research history
+        sorted_histories = sorted(listed_histories, key=lambda k: k['date_time']) 
+
+                
+        
+        histories_list = []
+        
+        for history in sorted_histories:
+            temp_list = [history['job_id'], history['batch'], history['date_time'], history['executable'] , history['output']  ]
+            #if user specifies 'more' options, print additionnal informations
+            if details:
+                temp_list += [history['stdout'], history['stderr'] , history['log']]
+            
+            temp_str = '\t\t\t\t'.join(temp_list)
+            histories_list += [temp_str]
+
+        return histories_list 
+
+        
+    #**********************************************#
+    # Function name : custom_print                 #
+    # input : message and options                  #
+    # role : print message to gui or shell         #
+    # if shell, quit in case of error              #
+    # but in gui do not quit,                      #
+    # we can 'replay' action, hence the 'replay'   #
+    # variable in fcc_batch script                 #
+    #**********************************************#
 
     def custom_print(self,message_type,message,exit):
         
@@ -416,13 +571,12 @@ class FileSystem():
     # Function name : get_answer                 #
     # input : question                           #
     # role : query the user on shell or gui      #
-    # and catch the answer                       #
+    # and get the answer                         #
     #********************************************#
 
     def get_answer(self,question,answer_type):
 
-        
-        
+
         if self.interface == 'cli':
             return raw_input(question).lower()
         else:
@@ -443,7 +597,7 @@ class FileSystem():
     def install_software(self,executable_name):
         
 
-
+        is_heppy_installed = False
         replay = True
 
         yes = set(['yes','y', 'ye', ''])
@@ -458,7 +612,8 @@ class FileSystem():
 
         if answer in yes:
 
-
+            is_heppy_installed = True
+            
             answer = self.get_answer('\nThe script will take this location as the default heppy folder :\n' + heppy_path + ' \nEnter yes if you want to continue else no if you want to specify another heppy path) (y/n)\n','short')
         
             if answer in no:
@@ -494,9 +649,9 @@ class FileSystem():
                 try:                         
                     from git import Repo     
                 except:                         
-                    #the problem is that when we source the bash script init_fcc_stack.sh                         
+                    #when we source the bash script init_fcc_stack.sh                         
                     #it modifies the python path and GIT module can no longer be imported                         
-                    #so try to re-add the path to python path
+                    #so try to re-add lost GIT paths to python path
                         
                     GIT_MODULE_LOCATION = '/usr/lib/python2.6/site-packages/'                          
                     GITDB_MODULE_LOCATION = '/usr/lib64/python2.6/site-packages/'
@@ -562,56 +717,40 @@ class FileSystem():
 
         if True == replay:
 
-            #generation of the heppy init.sh script
-
-            heppy_init_file_text = []
-            heppy_init_file_text += ['export HEPPY='+heppy_path]
-            heppy_init_file_text += ['export PATH=$HEPPY/bin:$PATH'] 
-            heppy_init_file_text += ['export PYTHONPATH=$HEPPY/..:$PYTHONPATH'] 
-            heppy_init_file_text += ['cp $HEPPY/scripts/*.py $HEPPY/bin/'] 
-            heppy_init_file_text += ['chmod +x $HEPPY/bin/*.py'] 
-
-
-            #overwrite init.sh script on heppy folder
-
-            self.write2file('w',heppy_path + '/init.sh','\n'.join(heppy_init_file_text))
-
-            self.sourcingHEPPY = 'source ' + heppy_path + '/init.sh'
-
-            #sourcing of the script
-            subprocess.call(self.sourcingHEPPY,shell=True)
+            self.setHEPPY = 'export HEPPY=' + heppy_path
+            
 
         return replay
 
     #*************************************************#
-    # Function name : search_executable               #
+    # Function name : try_install                     #
     # input : executable                              #
     # role : check heppy else print sourcing message  #
     #*************************************************#
 
-    def search_executable(self,executable):
+    def try_install(self,executable,is_exist):
+    #if executable not found in environnement path or filesystem
+    #do not print fccsw sourcing message because this is already checked in init_fcc_stack()
+  
 
-        
-
-        replay =  True     
-
-        replay = self.custom_print('Information',"Your executable " + executable + " must be a 'pre-existing' software",False)
-
+        #for non heppy software print error message
         if executable != 'heppy_loop.py':
-        
 
-            message = "\nThe file '" + executable + "' does not exist\nPlease upload your file in an accessible file system (EOS or AFS)\n"
+            if False is is_exist:
+                self.custom_print('Information',"Your executable " + executable + " must be a 'pre-existing' software",False)
 
-            if self.interface == 'cli':
-                message += sourcing_message            
+                message = "\nThe executable '" + executable + "' does not exist\nPlease upload your executable in an accessible file system (EOS or AFS)\n"
+
+                return self.custom_print('Error',message,True)
+            else:
+                return True                
+        #for heppy, try to install ?
+        else:            
+            #heppy install stuff
+            #for the moment just check heppy environnement and send to the worker
+            return self.init_heppy(executable)
             
-            replay = self.custom_print('Error',message,True)
-        
-        else:    
 
-            replay = self.install_software(executable)
-
-        return replay
 
     #*************************************************#
     # Function name : generate_bash_script            #
@@ -622,11 +761,11 @@ class FileSystem():
 
     def generate_bash_script(self,commands,script_name):
 
-     
-
+        
+        #in addition to the job command, we set the environnement for FCC,HEPPY and EOS
 
         shebang = "#!/bin/bash"
-        bash_script_text = [shebang, self.sourcingFCCStack, self.sourcingHEPPY] + commands    
+        bash_script_text = [shebang, self.sourcingFCCStack, self.setHEPPY, self.setEOS] + commands    
 
 
         #write the temporary job
@@ -667,10 +806,10 @@ class FileSystem():
 
 
         except:
-            self.custom_print('Error',"\nYour job has probably not been submitted\n"+ chosen_batch.upper() + " outputs an error, please check your configuration\n",False)     
+            self.custom_print('Error',"\nYour job has probably not been submitted\n"+ self.chosen_batch.upper() + " outputs an error, please check your configuration\n",False)     
             job_id = "unkown_id"
 
-        self.set_current_job_id(job_id)
+        self.current_job_id = job_id
         return job_id
 
 
@@ -679,19 +818,19 @@ class FileSystem():
         LSF_STATES = ['PEND', 'PSUSP' , 'RUN' , 'USUSP', 'SSUSP' , 'DONE' , 'EXIT', 'UNKWN', 'ZOMBI']
         HTcondor_STATES = ['U','I', 'R', 'X', 'C', 'H', 'E']
         
-        """TO DO WAIT FOR ANDRE"""
-        
+         """        TO DO             """
+    
         print 'status'    
 
     #****************************************************#
-    # Function name :  is_executable_exist               #
+    # Function name :  find_executable                   #
     # input : executable                                 #
     # role : search executable in the environnement      #
     #****************************************************#
 
-    def is_executable_exist(self,executable_name):
+    def find_executable(self,executable_name):
 
-        #we have a space here (see after how to manage)
+        #if we do not have a space here (else see after how to manage)
         #./run gaudirun.py
        
         if not ' ' in executable_name:
@@ -701,26 +840,35 @@ class FileSystem():
                 for root, dirs, files in os.walk(path):
                     if executable_name in files:
                     #print files
-                        return True
-                return False 
+                        return executable_name, True
+            return executable_name,False 
                 
         #ie.  ./run gaudirun.py           
-        else:
+        elif ' ' in executable_name:
 
             dot_slash = './'
             temp_executable_name = executable_name.split()
         
 
-        #the first may be the executable
-        filename = temp_executable_name[0]
+            #the first may be the executable
+            file_name = temp_executable_name[0]
 
-        if dot_slash in filename:
-            filename = filename.replace(dot_slash,'')
+            if dot_slash in file_name:
+                file_name = file_name.replace(dot_slash,'')
         
-        searched_file = self.find_file(filename)
-        
-
-        return searched_file != False
+            #now we extract executable name (run), executable will not have a space from now
+            #look on the path (recursivity)
+            searched_file,is_exist = self.find_executable(file_name)
+            
+            #if the executable definitely not in paths,
+            #look for the provided executable absolute path
+            if False is is_exist: 
+                searched_file,is_exist = self.find_path(file_name)
+    
+            return searched_file,is_exist
+            
+        else:
+           return executable_name,False
 
     #****************************************************#
     # Function name :  chmod                             #
@@ -733,7 +881,7 @@ class FileSystem():
     def chmod(self,file,permission):
 
         #reflet chmod a+permission 
-        #make the file executable for everyone
+        #make the file x,r, or w for everyone
         USER_PERMISSION = eval('stat.S_I'+permission+'USR')
         GROUP_PERMISSION = eval('stat.S_I'+permission+'GRP')
         OTHER_PERMISSION = eval('stat.S_I'+permission+'OTH')
@@ -743,6 +891,7 @@ class FileSystem():
         #get actual mode of the file
         mode = os.stat(file).st_mode
 
+        #append the new permission to the existing one
         os.chmod(file,mode | PERMISSION)
 
 
@@ -752,25 +901,15 @@ class FileSystem():
     # role : log each submissions                        #
     #****************************************************#
 
-    def save_history(self,job_id, batch, executable, submitted_time):
+    def save_history(self,job_id, batch,submitted_time,executable, outdir, stdout_file, error_file,log_file):
 
+       
+        submission_log = {'job_id':job_id, 'batch':batch, 'date_time':submitted_time,'executable':executable,'output':outdir,'stdout':stdout_file,'stderr':error_file,'log':log_file}
+    
+        #try to log else output error message
+        if False is self.log(submission_log):
+            self.custom_print('Error','Error in saving history',False)
 
-        
-
-        log = []
-
-        if not os.path.isfile(self.log_file_name):
-            HEADER = 'JOB ID\t\t\tBATCH\t\t\tSUMITTED TIME\t\t\tExecutable'    
-            log += [HEADER]
-
-
-        info = [job_id, batch, submitted_time, executable]
-
-
-
-        log += ['\t\t'.join(info)]
-
-        self.write2file('a',self.log_file_name, '\n'.join(log) + '\n')
 
 
     #*******************************************************#
@@ -779,9 +918,9 @@ class FileSystem():
     # role : display history of user submissions            #
     #*******************************************************#
 
-    def display_history(self,intervalle):
+    def display_history(self,intervalle,details):
 
-
+        
 
         default_min = 0
         full = False
@@ -790,12 +929,12 @@ class FileSystem():
         since = False
         since_to = False
         to = False
-        
+        replay =  True
         invalid_values = False
         
         values = intervalle
 
-
+        #--hist 11/24/16 10:00:00 11/25/16 19:00:00 (from to)
         if len(values) == 4:
             user_start_date = values[0]
             user_start_time = values[1]
@@ -810,6 +949,7 @@ class FileSystem():
             if not (self.format(user_start_date,'check',"%m/%d/%y") and  self.format(user_start_time,'check',"%H:%M:%S") and self.format(user_end_date,'check',"%m/%d/%y") and self.format(user_end_time,'check',"%H:%M:%S")):
                 invalid_values = True
         
+        #--hist 11/24/16 10:00:00 (from this date and time) or --hist 1 10 (from job 1 to 10)
         elif len(values) == 2:
             user_min = values[0]
             user_max = values[1]
@@ -820,7 +960,7 @@ class FileSystem():
             elif not self.is_int(user_min) or not self.is_int(user_max):
                 invalid_values = True
 
-            
+        #--hist 11/24/16 (from this date) or --hist 10 (10 last jobs)    
         elif len(values)== 1:
 
             user_min = values[0]
@@ -832,7 +972,7 @@ class FileSystem():
                 invalid_values = True
       
         
-        #no values entered so display all history
+        #no values entered so display all history --hist
         elif len(values)== 0:
             user_min = 'min'
             user_max = 'max'
@@ -841,23 +981,24 @@ class FileSystem():
             invalid_values = True
 
         if invalid_values:    
-            self.custom_print('Error','\nInvalid values\n',True)
-
-
-
+            return self.custom_print('Error','\nInvalid values\n',True)
+        
+    
+        
+        #if log or folder script has been deleted 
         if not os.path.isfile(self.log_file_name):
             self.custom_print('Error','\nHistory not available\n',True)
         else:
             
             
-            file_content = self.read_from_file(self.log_file_name)
-            file_content_listed = file_content.split('\n')
+            histories = self.load_history(details)
 
-            histories = filter(None, file_content_listed[1:]) 
-
+            if False is histories:    
+                return self.custom_print('Error','\nImpossible to load history\n',True)
+            
             default_max = len(histories) - 1
 
-            
+            #history according to job number
             if not(date_only or date_and_time or full):
 
                 if 'min' == user_min and 'max' == user_max:
@@ -877,7 +1018,7 @@ class FileSystem():
                 start = user_min if (user_min <= end and user_min >= default_min) else default_min
         
                 
-
+            #history according to date and time
             else:
             
                 mytimes = []
@@ -950,10 +1091,17 @@ class FileSystem():
                 if start == 0 and end == -1 or start > end:
                     header = '\nNO HISTORY FOR THESE DATES\n'  
                 else:
-                    header = file_content_listed[0]        
+                    header = 'JOB ID\t\t\t\tBATCH\t\t\t\tSUMITTED TIME\t\t\t\tExecutable\t\t\t\tOutput Results'
+                    if details:
+                        header += '\t\t\t\tStandard Output\t\t\t\tStandard Error\t\t\t\tStandard Log'       
                                 
-                print header + '\n' + '\n'.join(histories[start:end+1])
-        
+                history =  header + '\n' + '\n'.join(histories[start:end+1])
+                
+                if 'cli' == self.interface:
+                    print history
+                else:
+                    return history    
+                
             else:
                 self.custom_print('Error','\nInvalid Dates\n',True)
             
@@ -1186,9 +1334,11 @@ class FileSystem():
             return start,end     
         else :                
             return start_or_end
-            
-    #data type checking and format
-
+    
+    
+    #***************************#        
+    # DATA TYPE/FORMAT checking #
+    #***************************#
                 
     def format(self,date_time,operation,string_format):
 
