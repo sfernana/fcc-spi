@@ -818,9 +818,9 @@ class FileSystem():
         LSF_STATES = ['PEND', 'PSUSP' , 'RUN' , 'USUSP', 'SSUSP' , 'DONE' , 'EXIT', 'UNKWN', 'ZOMBI']
         HTcondor_STATES = ['U','I', 'R', 'X', 'C', 'H', 'E']
         
-         """        TO DO             """
+        """        TO DO             """
     
-        print 'status'    
+
 
     #****************************************************#
     # Function name :  find_executable                   #
