@@ -32,7 +32,7 @@ Contents:
 ### a - Cluster
 
 	
-Cern is equiped with a batch computing service consisting of around 120,000 CPU cores. 
+CERN is equiped with a batch computing service consisting of around 120,000 CPU cores. 
 A such power is essential to run CERN experiments, tasks such as physics event reconstruction, data analysis and simulation available for all users of the system.
 
 ### b - Batch Management Software
@@ -42,7 +42,7 @@ Such clusters of computers are managed by workload management platforms acting a
 - LSF developped by IBM
 - HTCondor developped by Wisconsin's University
 
-CERN has experienced during a while LSF platform and now they are migrating to HTCondor platform.
+CERN has experienced during a while LSF platform and now they are migrating to HTCondor platform if it is not already done the date you are reading this tutorial.
 
 
 ## 2 - FCCBATCH
@@ -53,13 +53,13 @@ CERN has experienced during a while LSF platform and now they are migrating to H
 
 Before using the BATCH services, you need to fullfill the prerequisites. This repository is a set of python scripts that permit you to submit a job without reading the documentation of any Batch systems.
 It aims to offer you an abstraction in submitting jobs to the cluster in the simplest way.
-Indeed, we did the work for you in reading documentation of how to use batch services at CERN, but if you feel the need to use a specific Batch platform with your own script, you can begin with this tutorial :
+Indeed, we did the work for you in reading documentation of how to use batch services at CERN, but if you feel the need to use a specific Batch platform with your own script, you can read this tutorial dedicated to HTCondor :
 
 [FccCondor](https://github.com/sfernana/fcc-tutorials/blob/master/FccCondor.md)
 
 
-At the end of this tutorial, you will be able from your seat to run a job on a machine located somewhere at CERN among 120,000 CPU cores without paying attention about **HOW** it works.
-Once the job will finish, in principle the system will get back the results to the submitted working directory. You can switch off your machine, go to home and come back once you feel that the results are available.
+At the end of FCCBATCH tutorial, you will be able from your seat to run a job on a machine located somewhere at CERN among 120,000 CPU cores without paying attention about **HOW** it works.
+Once the job will finish, in principle the system will get back the results to the submitted working directory. In the meanwhile, you can switch off your machine, go to home and come back once you feel that the results are available.
 
 
 
@@ -81,7 +81,7 @@ In order to submit a 'valid' job, you have to provide at least :
 
 
 
-To be authorized to use the BATCH, you need to have access to LXPLUS service which is the interactive logon service to Linux for all CERN users. 
+To be authorized to use the BATCH services at CERN, you need to have access to LXPLUS service which is the interactive logon service to Linux for all CERN users. 
 
 The cluster LXPLUS consists of public machines provided by the IT Department for interactive work.
 
@@ -106,7 +106,7 @@ FCCBATCH does not really need a pre-checking because the job will run on a worke
 
 So this step will be already added by FCCBATCH before the execution of the job on the worker node.
 
-FCCBATCH requires to set up environment locally in order to check locally the correctness of the command provided by the user job before sending the job to the batch.
+Nevertheless, FCCBATCH requires to set up environment locally in order to check locally the correctness of the command provided by the user job before sending the job to the batch.
 Like that, FCCBATCH ensure to send an "error-less job" in order to avoid the user waiting for a bad job and wasting his time. 
 
 
@@ -170,8 +170,7 @@ And now another way to run **FCC PHYSICS** :
 
 ```
 
-It will open a GUI, and you can fill manually the fields of the GUI or import an existing specification file like [fccphysics.spec](https://github.com/sfernana/fcc-spi/blob/master/batch/fccphysics.spec) 
-provided on this repository by doing Menu -> Import
+It will open a GUI, and you can fill manually the fields of the GUI or import (by doing Menu -> Import) an existing specification file like [fccphysics.spec](https://github.com/sfernana/fcc-spi/blob/master/batch/fccphysics.spec) provided on this repository.
 
 Then click **RUN** to submit the job !
 
