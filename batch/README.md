@@ -66,7 +66,7 @@ Once the job will finish, in principle the system will get back the results to t
 ### b - Script options
 
 
-![IMAGE NOT AVAILABLE](/tutorial_images/help.png "options")
+![IMAGE NOT AVAILABLE](https://raw.githubusercontent.com/sfernana/fcc-spi/tree/master/batch/tutorial_images/help.png "options")
 
 
 In order to submit a 'valid' job, you have to provide at least :
@@ -176,7 +176,7 @@ provided on this repository by doing Menu -> Import
 Then click **RUN** to submit the job !
 
 
-![IMAGE NOT AVAILABLE](/tutorial_images/fcc_gui_fccphysics.png "fccphysics")
+![IMAGE NOT AVAILABLE](https://raw.githubusercontent.com/sfernana/fcc-spi/tree/master/batch/tutorial_images/fcc_gui_fccphysics.png "fccphysics")
 
 Congratulations !!!
 
