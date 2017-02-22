@@ -1,1 +1,0 @@
-{"executable": "/afs/cern.ch/user/s/sfernana/FCC/FCCSW/./run gaudirun.py", "number_of_runs": "1", "log": "", "chosen_batch": "htcondor", "stdout": "", "fcc_input_files": "", "fcc_conf_file": "/afs/cern.ch/user/s/sfernana/FCC/FCCSW/Examples/options/example_options.py", "stderr": "", "number_of_events": "", "fcc_output_file": "", "batch_original_arguments": "", "outdir": ""}
